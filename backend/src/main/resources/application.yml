@@ -1,3 +1,4 @@
+
 server:
   port: 8080
   servlet:
@@ -13,7 +14,7 @@ spring:
       max-request-size: 5200MB
       file-size-threshold: 2MB
 
-    datasource:
+  datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:sharedrop}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
     username: ${DB_USERNAME:sharedrop}
     password: ${DB_PASSWORD:sharedrop_secret}
@@ -49,14 +50,14 @@ spring:
     resources:
       static-locations: file:../,classpath:/static/,classpath:/public/
 
-# ─── App Configuration ───────────────────────────────────────────
+# App Configuration
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
 
   upload:
-    max-file-size: 5368709120          # 5 GB in bytes
+    max-file-size: 5368709120
     max-files-per-share: 20
-    max-text-size: 1048576             # 1 MB in bytes
+    max-text-size: 1048576
     storage-path: ${STORAGE_PATH:./uploads}
     allowed-extensions: jpg,jpeg,png,gif,bmp,svg,webp,ico,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,json,xml,yaml,yml,zip,rar,7z,tar,gz,bz2,mp3,mp4,avi,mov,mkv,wav,flac,ogg,js,ts,jsx,tsx,py,java,kt,go,rs,c,cpp,h,cs,rb,php,swift,sql,sh,bash,zsh,ps1,md,rst,log,conf,cfg,ini,env,toml,lock,woff,woff2,ttf,otf,eot
 
@@ -71,7 +72,7 @@ app:
     max-downloads-default: 100
 
   cleanup:
-    cron: "0 */15 * * * *"             # every 15 minutes
+    cron: "0 */15 * * * *"
     batch-size: 100
 
   security:
@@ -83,8 +84,7 @@ app:
     cors:
       allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080,http://localhost:5500,http://127.0.0.1:5500}
 
-
-# ─── API Documentation ───────────────────────────────────────────
+# API Documentation
 springdoc:
   api-docs:
     path: /api-docs
@@ -93,7 +93,7 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: method
 
-# ─── Logging ─────────────────────────────────────────────────────
+# Logging
 logging:
   level:
     root: INFO
