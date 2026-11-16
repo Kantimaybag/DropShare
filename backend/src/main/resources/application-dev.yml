@@ -1,0 +1,34 @@
+# Development profile — uses H2 in-memory database, no MySQL required.
+# Run with: mvn spring-boot:run -Dspring-boot.run.profiles=dev
+
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/dropshare;MODE=MYSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  flyway:
+    locations: classpath:db/migration
+
+  web:
+    resources:
+      static-locations: file:../,classpath:/static/
+
+logging:
+  level:
+    com.sharedrop: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
