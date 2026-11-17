@@ -15,7 +15,10 @@ CREATE TABLE audit_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     share_id BIGINT NOT NULL,
     event_type VARCHAR(50) NOT NULL,
+    share_token_hash VARCHAR(64) NOT NULL,
+    owner_secret_hash VARCHAR(64) NOT NULL,
     description VARCHAR(1000) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_audit_share_created (share_id, created_at)
+    INDEX idx_audit_share_created (share_id, created_at),
+    INDEX idx_audit_owner_token (share_token_hash, owner_secret_hash)
 );
