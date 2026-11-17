@@ -13,6 +13,7 @@ import com.sharedrop.exception.ShareExpiredException;
 import com.sharedrop.repository.FileRepository;
 import com.sharedrop.repository.OtpRepository;
 import com.sharedrop.repository.ShareRepository;
+import com.sharedrop.repository.SharedTextRepository;
 import com.sharedrop.util.FileValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,12 @@ class ShareServiceTest {
     @Mock
     private StorageService storageService;
 
+    @Mock
+    private SharedTextRepository sharedTextRepository;
+
+    @Mock
+    private AuditLogService auditLogService;
+
     private FileValidator fileValidator;
     private ShareService shareService;
 
@@ -58,8 +65,10 @@ class ShareServiceTest {
                 otpRepository,
                 storageService,
                 fileValidator,
+                sharedTextRepository,
+                auditLogService,
                 "http://localhost:8080",
-                30,
+                10,
                 100
         );
     }
@@ -98,7 +107,7 @@ class ShareServiceTest {
         assertTrue(response.getShareUrl().contains("/d/"));
         assertNotNull(response.getOtp());
         assertEquals(6, response.getOtp().length());
-        assertEquals(ShareType.FILE.name(), response.getShareType());
+        assertEquals(ShareType.MIXED.name(), response.getShareType());
         assertEquals(1, response.getFiles().size());
         assertEquals("test-document.pdf", response.getFiles().get(0).getOriginalFilename());
 
@@ -155,7 +164,7 @@ class ShareServiceTest {
 
         assertNotNull(response);
         assertNotNull(response.getShareToken());
-        assertEquals(ShareType.TEXT.name(), response.getShareType());
+        assertEquals(ShareType.MIXED.name(), response.getShareType());
         assertNotNull(response.getOtp());
         verify(shareRepository, times(1)).save(any(Share.class));
         verify(otpRepository, times(1)).save(any(OtpVerification.class));
