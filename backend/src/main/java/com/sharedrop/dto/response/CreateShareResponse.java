@@ -7,6 +7,7 @@ public class CreateShareResponse {
     private String shareToken;
     private String shareUrl;
     private String otp;
+    private String resendSecret;
     private String expiresAt;
     private String shareType;
     private List<FileInfoResponse> files;
@@ -21,6 +22,9 @@ public class CreateShareResponse {
 
     public String getOtp() { return otp; }
     public void setOtp(String otp) { this.otp = otp; }
+
+    public String getResendSecret() { return resendSecret; }
+    public void setResendSecret(String resendSecret) { this.resendSecret = resendSecret; }
 
     public String getExpiresAt() { return expiresAt; }
     public void setExpiresAt(String expiresAt) { this.expiresAt = expiresAt; }
