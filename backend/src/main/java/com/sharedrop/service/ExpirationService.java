@@ -5,6 +5,7 @@ import com.sharedrop.entity.SharedFile;
 import com.sharedrop.enums.ShareStatus;
 import com.sharedrop.repository.FileRepository;
 import com.sharedrop.repository.ShareRepository;
+import com.sharedrop.util.HashUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,26 @@ public class ExpirationService {
         }
 
         return expiredShares.size();
+    }
+
+    /**
+     * Immediately destroys a session after its final allowed download has finished streaming.
+     */
+    @Transactional
+    public void cleanupCompletedSession(String rawToken) {
+        Share share = shareRepository.findByPublicToken(HashUtil.sha256(rawToken)).orElse(null);
+        if (share == null || share.getShareStatus() != ShareStatus.COMPLETED) return;
+
+        for (SharedFile file : fileRepository.findByShareId(share.getId())) {
+            try {
+                storageService.delete(file.getStorageKey());
+            } catch (Exception e) {
+                log.warn("Failed to delete completed-session file {}: {}", file.getStorageKey(), e.getMessage());
+            }
+        }
+        auditLogService.record(share, "SESSION_DESTROYED", "Download limit reached. Session content was permanently deleted after streaming.");
+        shareRepository.delete(share);
+        log.info("Destroyed completed share id={} after download streaming finished", share.getId());
     }
 
     /**
