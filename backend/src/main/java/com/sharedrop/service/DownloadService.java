@@ -26,16 +26,19 @@ public class DownloadService {
     private final FileRepository fileRepository;
     private final OtpRepository otpRepository;
     private final StorageService storageService;
+    private final AuditLogService auditLogService;
 
     public DownloadService(
             ShareRepository shareRepository,
             FileRepository fileRepository,
             OtpRepository otpRepository,
-            StorageService storageService) {
+            StorageService storageService,
+            AuditLogService auditLogService) {
         this.shareRepository = shareRepository;
         this.fileRepository = fileRepository;
         this.otpRepository = otpRepository;
         this.storageService = storageService;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -73,6 +76,10 @@ public class DownloadService {
             log.info("Share id={} marked as COMPLETED (reached max downloads: {})", share.getId(), share.getMaxDownloads());
         }
         shareRepository.save(share);
+        auditLogService.record(share, "FILE_DOWNLOADED", "Downloaded file: " + file.getOriginalFilename());
+        if (share.getShareStatus() == ShareStatus.COMPLETED) {
+            auditLogService.record(share, "DOWNLOAD_LIMIT_REACHED", "Session reached its download limit and is queued for destruction.");
+        }
 
         log.info("Authorized download for file id={}, share id={}, current downloads={}/{}",
                 file.getId(), share.getId(), share.getDownloadCount(), share.getMaxDownloads());
