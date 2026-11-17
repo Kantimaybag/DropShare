@@ -242,7 +242,7 @@ function renderAuditEvents(events) {
   }
   if (!section) return;
   section.innerHTML = `
-    <div class="section-header"><div class="section-title">Session Audit Log <span class="section-badge">${events.length} events</span></div></div>
+    <div class="section-header"><div class="section-title">Session Audit Log <span class="section-badge">${events.length} events</span></div><button type="button" id="refresh-audit-log" class="btn btn-ghost btn-sm">Refresh</button></div>
     <div>
       ${events.length ? events.map(event => `
         <div style="display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--border-subtle);">
@@ -250,6 +250,7 @@ function renderAuditEvents(events) {
           <time style="font-size:11px;color:var(--slate-500);white-space:nowrap;">${escapeHTML(new Date(event.createdAt).toLocaleString())}</time>
         </div>`).join('') : '<p style="color:var(--slate-500);padding:12px 0;">No activity recorded yet.</p>'}
     </div>`;
+  section.querySelector('#refresh-audit-log')?.addEventListener('click', refreshAuditLog);
 }
 
 // DOM Elements & Initialization
@@ -820,6 +821,7 @@ function openShareModal(drop) {
 function closeShareModal() {
   const modal = document.getElementById('share-modal');
   modal.classList.remove('open');
+  if (resendCountdownInterval) { clearInterval(resendCountdownInterval); resendCountdownInterval = null; }
 }
 
 // Render Audit Logs / Recent Drops Table
@@ -930,11 +932,12 @@ async function revokeDrop(dropId) {
       }
     }
 
-    state.recentDrops = state.recentDrops.filter(item => item.id !== dropId);
-    if (state.activeSession?.token === drop.token) { state.activeSession = null; saveActiveSession(); }
+    drop.status = 'REVOKED';
     saveRecentDrops();
+    await refreshAuditLog();
+    if (state.activeSession?.token === drop.token) { state.activeSession = null; saveActiveSession(); activeResendContext = null; }
     renderAuditTable();
-    showToast('Share revoked successfully', 'success');
+    showToast('Session revoked. Its contents are queued for destruction.', 'success');
   } catch (error) {
     console.error('Revoke failed:', error);
     showToast(error.message || 'Could not revoke the share. Try again.', 'error');
