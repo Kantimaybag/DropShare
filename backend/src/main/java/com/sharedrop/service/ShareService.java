@@ -56,7 +56,7 @@ public class ShareService {
             StorageService storageService,
             FileValidator fileValidator,
             @Value("${app.base-url:http://localhost:8080}") String baseUrl,
-            @Value("${app.otp.expiration-minutes:30}") int otpExpirationMinutes,
+            @Value("${app.otp.expiration-minutes:10}") int otpExpirationMinutes,
             @Value("${app.share.max-downloads-default:100}") int defaultMaxDownloads) {
         this.shareRepository = shareRepository;
         this.fileRepository = fileRepository;
@@ -145,11 +145,13 @@ public class ShareService {
             ));
         }
 
-        // Create OTP
+        // Create OTP and a separate sender-only credential for secure OTP resends.
         String rawOtp = OtpGenerator.generate();
+        String rawResendSecret = TokenGenerator.generateToken();
         OtpVerification otpVerification = new OtpVerification();
         otpVerification.setShare(savedShare);
         otpVerification.setOtpHash(HashUtil.bcryptHash(rawOtp));
+        otpVerification.setResendSecretHash(HashUtil.sha256(rawResendSecret));
         otpVerification.setExpiresAt(Instant.now().plus(Duration.ofMinutes(otpExpirationMinutes)));
         otpVerification.setFailedAttempts(0);
         otpRepository.save(otpVerification);
@@ -160,6 +162,7 @@ public class ShareService {
         response.setShareToken(rawToken);
         response.setShareUrl(baseUrl + "/d/" + rawToken);
         response.setOtp(rawOtp);
+        response.setResendSecret(rawResendSecret);
         response.setExpiresAt(DateTimeFormatter.ISO_INSTANT.format(expiresAt));
         response.setShareType(ShareType.FILE.name());
         response.setFiles(fileInfoList);
@@ -201,11 +204,13 @@ public class ShareService {
 
         Share savedShare = shareRepository.save(share);
 
-        // Create OTP
+        // Create OTP and a separate sender-only credential for secure OTP resends.
         String rawOtp = OtpGenerator.generate();
+        String rawResendSecret = TokenGenerator.generateToken();
         OtpVerification otpVerification = new OtpVerification();
         otpVerification.setShare(savedShare);
         otpVerification.setOtpHash(HashUtil.bcryptHash(rawOtp));
+        otpVerification.setResendSecretHash(HashUtil.sha256(rawResendSecret));
         otpVerification.setExpiresAt(Instant.now().plus(Duration.ofMinutes(otpExpirationMinutes)));
         otpVerification.setFailedAttempts(0);
         otpRepository.save(otpVerification);
@@ -216,6 +221,7 @@ public class ShareService {
         response.setShareToken(rawToken);
         response.setShareUrl(baseUrl + "/d/" + rawToken);
         response.setOtp(rawOtp);
+        response.setResendSecret(rawResendSecret);
         response.setExpiresAt(DateTimeFormatter.ISO_INSTANT.format(expiresAt));
         response.setShareType(ShareType.TEXT.name());
         response.setFiles(new ArrayList<>());
