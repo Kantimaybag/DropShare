@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findByShareIdOrderByCreatedAtDesc(Long shareId);
+    List<AuditLog> findByShareTokenHashAndOwnerSecretHashOrderByCreatedAtDesc(String tokenHash, String ownerSecretHash);
 }
