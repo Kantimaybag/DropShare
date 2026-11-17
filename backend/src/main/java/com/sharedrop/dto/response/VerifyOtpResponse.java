@@ -7,6 +7,7 @@ public class VerifyOtpResponse {
     private String shareType;
     private List<FileInfoResponse> files;
     private String textContent;
+    private List<TextEntryResponse> textEntries;
 
     // ── Getters & Setters ────────────────────────────────────────
 
@@ -18,4 +19,7 @@ public class VerifyOtpResponse {
 
     public String getTextContent() { return textContent; }
     public void setTextContent(String textContent) { this.textContent = textContent; }
+
+    public List<TextEntryResponse> getTextEntries() { return textEntries; }
+    public void setTextEntries(List<TextEntryResponse> textEntries) { this.textEntries = textEntries; }
 }
