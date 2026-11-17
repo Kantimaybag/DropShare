@@ -31,11 +31,14 @@ class ExpirationServiceTest {
     @Mock
     private StorageService storageService;
 
+    @Mock
+    private AuditLogService auditLogService;
+
     private ExpirationService expirationService;
 
     @BeforeEach
     void setUp() {
-        expirationService = new ExpirationService(shareRepository, fileRepository, storageService);
+        expirationService = new ExpirationService(shareRepository, fileRepository, storageService, auditLogService);
     }
 
     @Test
