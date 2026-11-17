@@ -72,7 +72,7 @@ app:
     max-downloads-default: 100
 
   cleanup:
-    cron: "0 * * * * *"
+    cron: "0 */15 * * * *"
     batch-size: 100
 
   security:
