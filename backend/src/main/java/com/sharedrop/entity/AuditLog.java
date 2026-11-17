@@ -17,7 +17,7 @@ public class AuditLog {
     @Column(name = "share_token_hash", nullable = false, length = 64)
     private String shareTokenHash;
 
-    @Column(name = "owner_secret_hash", nullable = false, length = 64)
+    @Column(name = "owner_secret_hash", length = 64)
     private String ownerSecretHash;
 
     @Column(name = "event_type", nullable = false, length = 50)
