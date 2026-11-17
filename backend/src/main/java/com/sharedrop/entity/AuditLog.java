@@ -14,6 +14,12 @@ public class AuditLog {
     @Column(name = "share_id", nullable = false)
     private Long shareId;
 
+    @Column(name = "share_token_hash", nullable = false, length = 64)
+    private String shareTokenHash;
+
+    @Column(name = "owner_secret_hash", nullable = false, length = 64)
+    private String ownerSecretHash;
+
     @Column(name = "event_type", nullable = false, length = 50)
     private String eventType;
 
@@ -28,6 +34,10 @@ public class AuditLog {
 
     public Long getId() { return id; }
     public Long getShareId() { return shareId; }
+    public String getShareTokenHash() { return shareTokenHash; }
+    public void setShareTokenHash(String value) { this.shareTokenHash = value; }
+    public String getOwnerSecretHash() { return ownerSecretHash; }
+    public void setOwnerSecretHash(String value) { this.ownerSecretHash = value; }
     public void setShareId(Long shareId) { this.shareId = shareId; }
     public String getEventType() { return eventType; }
     public void setEventType(String eventType) { this.eventType = eventType; }
