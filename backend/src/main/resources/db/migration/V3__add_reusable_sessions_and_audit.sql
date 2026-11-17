@@ -16,7 +16,7 @@ CREATE TABLE audit_logs (
     share_id BIGINT NOT NULL,
     event_type VARCHAR(50) NOT NULL,
     share_token_hash VARCHAR(64) NOT NULL,
-    owner_secret_hash VARCHAR(64) NOT NULL,
+    owner_secret_hash VARCHAR(64) NULL,
     description VARCHAR(1000) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_audit_share_created (share_id, created_at),
