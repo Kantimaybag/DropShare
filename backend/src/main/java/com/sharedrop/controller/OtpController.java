@@ -3,6 +3,7 @@ package com.sharedrop.controller;
 import com.sharedrop.dto.request.VerifyOtpRequest;
 import com.sharedrop.dto.response.ApiResponse;
 import com.sharedrop.dto.response.VerifyOtpResponse;
+import com.sharedrop.dto.response.ResendOtpResponse;
 import com.sharedrop.security.RateLimitService;
 import com.sharedrop.service.OtpService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,14 +26,31 @@ public class OtpController {
     private final OtpService otpService;
     private final RateLimitService rateLimitService;
     private final int maxVerifyRate;
+    private final int maxResendRate;
 
     public OtpController(
             OtpService otpService,
             RateLimitService rateLimitService,
-            @Value("${app.security.rate-limit.max-verify-requests-per-minute:10}") int maxVerifyRate) {
+            @Value("${app.security.rate-limit.max-verify-requests-per-minute:10}") int maxVerifyRate,
+            @Value("${app.security.rate-limit.max-resend-requests-per-minute:3}") int maxResendRate) {
         this.otpService = otpService;
         this.rateLimitService = rateLimitService;
         this.maxVerifyRate = maxVerifyRate;
+        this.maxResendRate = maxResendRate;
+    }
+
+    @PostMapping("/{token}/resend-otp")
+    @Operation(summary = "Resend expired OTP", description = "Creates a replacement OTP after expiry. Requires the sender-only resend secret.")
+    public ResponseEntity<ApiResponse<ResendOtpResponse>> resendOtp(
+            @PathVariable("token") String token,
+            @RequestHeader("X-Resend-Secret") String resendSecret,
+            HttpServletRequest httpRequest) {
+
+        String clientIp = getClientIp(httpRequest);
+        rateLimitService.checkPerMinute("resend-otp:" + clientIp, maxResendRate);
+
+        ResendOtpResponse response = otpService.resendOtp(token, resendSecret);
+        return ResponseEntity.ok(ApiResponse.success("A new OTP was generated successfully", response));
     }
 
     @PostMapping("/{token}/verify")
