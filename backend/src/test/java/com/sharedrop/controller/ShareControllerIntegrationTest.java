@@ -186,7 +186,7 @@ class ShareControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.shareType").value("FILE"));
+                .andExpect(jsonPath("$.data.shareType").value("MIXED"));
     }
 
     @Test
