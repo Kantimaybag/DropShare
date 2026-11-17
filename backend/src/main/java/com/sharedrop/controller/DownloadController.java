@@ -52,9 +52,10 @@ public class DownloadController {
 
         log.debug("Download requested for fileId={} in share token={} from IP: {}", fileId, token, clientIp);
 
-        Resource resource = downloadService.downloadFile(token, fileId);
+        // Read metadata before downloadFile increments the count and may complete the session.
         String contentType = downloadService.getContentType(token, fileId);
         String filename = downloadService.getFilename(token, fileId);
+        Resource resource = downloadService.downloadFile(token, fileId);
 
         MediaType mediaType;
         try {
