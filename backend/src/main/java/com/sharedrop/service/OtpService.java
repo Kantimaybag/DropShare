@@ -3,6 +3,7 @@ package com.sharedrop.service;
 import com.sharedrop.dto.request.VerifyOtpRequest;
 import com.sharedrop.dto.response.FileInfoResponse;
 import com.sharedrop.dto.response.VerifyOtpResponse;
+import com.sharedrop.dto.response.ResendOtpResponse;
 import com.sharedrop.entity.OtpVerification;
 import com.sharedrop.entity.Share;
 import com.sharedrop.enums.ShareStatus;
@@ -12,6 +13,8 @@ import com.sharedrop.exception.ResourceNotFoundException;
 import com.sharedrop.exception.ShareExpiredException;
 import com.sharedrop.repository.OtpRepository;
 import com.sharedrop.repository.ShareRepository;
+import com.sharedrop.security.OtpGenerator;
+import com.sharedrop.security.TokenGenerator;
 import com.sharedrop.util.HashUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,16 +37,65 @@ public class OtpService {
 
     private final int maxAttempts;
     private final int lockoutMinutes;
+    private final int otpExpirationMinutes;
 
     public OtpService(
             OtpRepository otpRepository,
             ShareRepository shareRepository,
             @Value("${app.otp.max-attempts:5}") int maxAttempts,
-            @Value("${app.otp.lockout-minutes:15}") int lockoutMinutes) {
+            @Value("${app.otp.lockout-minutes:15}") int lockoutMinutes,
+            @Value("${app.otp.expiration-minutes:10}") int otpExpirationMinutes) {
         this.otpRepository = otpRepository;
         this.shareRepository = shareRepository;
         this.maxAttempts = maxAttempts;
         this.lockoutMinutes = lockoutMinutes;
+        this.otpExpirationMinutes = otpExpirationMinutes;
+    }
+
+    /**
+     * Issues a replacement OTP only after the current OTP expires.
+     * Requires the sender-only secret returned when the share was created.
+     */
+    @Transactional
+    public ResendOtpResponse resendOtp(String rawToken, String rawResendSecret) {
+        String tokenHash = HashUtil.sha256(rawToken);
+        Share share = shareRepository.findByPublicToken(tokenHash)
+                .orElseThrow(() -> new ResourceNotFoundException("Share not found for token"));
+
+        if (share.isExpired() || share.getShareStatus() != ShareStatus.ACTIVE) {
+            throw new ShareExpiredException("This share is no longer active. A new share is required.");
+        }
+
+        OtpVerification verification = otpRepository.findByShareId(share.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("No OTP verification configured for this share"));
+
+        if (rawResendSecret == null || rawResendSecret.isBlank()
+                || verification.getResendSecretHash() == null
+                || !HashUtil.sha256(rawResendSecret).equals(verification.getResendSecretHash())) {
+            throw new InvalidOtpException("Sender authorization failed. Use the original sender session.");
+        }
+
+        if (!verification.isExpired()) {
+            long secondsLeft = Duration.between(Instant.now(), verification.getExpiresAt()).getSeconds();
+            throw new InvalidOtpException("The current OTP is still valid. Resend is available after it expires in " + Math.max(1, secondsLeft) + " seconds.");
+        }
+
+        String newOtp = OtpGenerator.generate();
+        String newResendSecret = TokenGenerator.generateToken();
+
+        verification.setOtpHash(HashUtil.bcryptHash(newOtp));
+        verification.setResendSecretHash(HashUtil.sha256(newResendSecret));
+        verification.setExpiresAt(Instant.now().plus(Duration.ofMinutes(otpExpirationMinutes)));
+        verification.setFailedAttempts(0);
+        verification.setLockedUntil(null);
+        verification.setVerifiedAt(null);
+        otpRepository.save(verification);
+
+        ResendOtpResponse response = new ResendOtpResponse();
+        response.setOtp(newOtp);
+        response.setResendSecret(newResendSecret);
+        response.setExpiresAt(verification.getExpiresAt().toString());
+        return response;
     }
 
     /**
