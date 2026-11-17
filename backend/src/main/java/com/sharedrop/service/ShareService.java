@@ -178,7 +178,7 @@ public class ShareService {
         response.setResendSecret(rawResendSecret);
         response.setOwnerSecret(rawOwnerSecret);
         response.setExpiresAt(DateTimeFormatter.ISO_INSTANT.format(expiresAt));
-        response.setShareType(ShareType.FILE.name());
+        response.setShareType(ShareType.MIXED.name());
         response.setFiles(fileInfoList);
         return response;
     }
@@ -247,7 +247,7 @@ public class ShareService {
         response.setResendSecret(rawResendSecret);
         response.setOwnerSecret(rawOwnerSecret);
         response.setExpiresAt(DateTimeFormatter.ISO_INSTANT.format(expiresAt));
-        response.setShareType(ShareType.TEXT.name());
+        response.setShareType(ShareType.MIXED.name());
         response.setFiles(new ArrayList<>());
         return response;
     }
