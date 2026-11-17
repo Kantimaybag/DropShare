@@ -12,6 +12,7 @@ import com.sharedrop.exception.GlobalExceptionHandler;
 import com.sharedrop.repository.FileRepository;
 import com.sharedrop.repository.OtpRepository;
 import com.sharedrop.repository.ShareRepository;
+import com.sharedrop.repository.SharedTextRepository;
 import com.sharedrop.security.RateLimitService;
 import com.sharedrop.service.*;
 import com.sharedrop.util.FileValidator;
@@ -54,6 +55,12 @@ class ShareControllerIntegrationTest {
     private OtpRepository otpRepository;
 
     @Mock
+    private SharedTextRepository sharedTextRepository;
+
+    @Mock
+    private AuditLogService auditLogService;
+
+    @Mock
     private StorageService storageService;
 
     private ShareService shareService;
@@ -72,17 +79,20 @@ class ShareControllerIntegrationTest {
                 otpRepository,
                 storageService,
                 fileValidator,
+                sharedTextRepository,
+                auditLogService,
                 "http://localhost:8080",
-                30,
+                10,
                 100
         );
 
-        otpService = new OtpService(otpRepository, shareRepository, 5, 15);
-        downloadService = new DownloadService(shareRepository, fileRepository, otpRepository, storageService);
+        otpService = new OtpService(otpRepository, shareRepository, sharedTextRepository, auditLogService, 5, 15, 10);
+        downloadService = new DownloadService(shareRepository, fileRepository, otpRepository, storageService, auditLogService);
+        ExpirationService expirationService = new ExpirationService(shareRepository, fileRepository, storageService, auditLogService);
 
-        ShareController shareController = new ShareController(shareService, rateLimitService, 20);
-        OtpController otpController = new OtpController(otpService, rateLimitService, 20);
-        DownloadController downloadController = new DownloadController(downloadService, rateLimitService, 60);
+        ShareController shareController = new ShareController(shareService, rateLimitService, auditLogService, 20);
+        OtpController otpController = new OtpController(otpService, rateLimitService, 20, 3);
+        DownloadController downloadController = new DownloadController(downloadService, expirationService, rateLimitService, 60);
         UploadController uploadController = new UploadController(fileValidator, rateLimitService);
 
         this.mockMvc = MockMvcBuilders.standaloneSetup(shareController, otpController, downloadController, uploadController)
