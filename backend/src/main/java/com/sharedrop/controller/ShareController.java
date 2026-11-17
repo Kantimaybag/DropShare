@@ -91,7 +91,9 @@ public class ShareController {
     public ResponseEntity<ApiResponse<Void>> addFiles(
             @PathVariable String token,
             @RequestHeader("X-Share-Owner") String ownerSecret,
-            @RequestParam("files") List<MultipartFile> files) {
+            @RequestParam("files") List<MultipartFile> files,
+            HttpServletRequest request) {
+        rateLimitService.checkPerMinute("append-files:" + getClientIp(request), maxUploadRate);
         shareService.addFilesToSession(token, ownerSecret, files);
         return ResponseEntity.ok(ApiResponse.success("Files added to the existing session"));
     }
@@ -101,7 +103,9 @@ public class ShareController {
     public ResponseEntity<ApiResponse<Void>> addText(
             @PathVariable String token,
             @RequestHeader("X-Share-Owner") String ownerSecret,
-            @Valid @RequestBody CreateTextShareRequest request) {
+            @Valid @RequestBody CreateTextShareRequest request,
+            HttpServletRequest httpRequest) {
+        rateLimitService.checkPerMinute("append-text:" + getClientIp(httpRequest), maxUploadRate);
         shareService.addTextToSession(token, ownerSecret, request);
         return ResponseEntity.ok(ApiResponse.success("Text added to the existing session"));
     }
@@ -110,7 +114,9 @@ public class ShareController {
     @Operation(summary = "Get sender view of a sharing session")
     public ResponseEntity<ApiResponse<ShareManagementResponse>> manage(
             @PathVariable String token,
-            @RequestHeader("X-Share-Owner") String ownerSecret) {
+            @RequestHeader("X-Share-Owner") String ownerSecret,
+            HttpServletRequest request) {
+        rateLimitService.checkPerMinute("manage:" + getClientIp(request), 60);
         return ResponseEntity.ok(ApiResponse.success("Session details retrieved",
                 shareService.getManagementDetails(token, ownerSecret)));
     }
@@ -119,7 +125,9 @@ public class ShareController {
     @Operation(summary = "Get the session audit log")
     public ResponseEntity<ApiResponse<List<AuditEventResponse>>> audit(
             @PathVariable String token,
-            @RequestHeader("X-Share-Owner") String ownerSecret) {
+            @RequestHeader("X-Share-Owner") String ownerSecret,
+            HttpServletRequest request) {
+        rateLimitService.checkPerMinute("audit:" + getClientIp(request), 60);
         return ResponseEntity.ok(ApiResponse.success("Audit log retrieved",
                 auditLogService.getForOwner(token, ownerSecret)));
     }
