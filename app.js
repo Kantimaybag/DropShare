@@ -135,7 +135,8 @@ const state = {
   password: '',
   isE2EE: true,
   isTransferring: false,
-  recentDrops: []
+  recentDrops: [],
+  activeSession: null
 };
 
 // LocalStorage Persistence for Audit Logs
@@ -166,16 +167,89 @@ function loadRecentDrops() {
 }
 
 function saveRecentDrops() {
+  try { localStorage.setItem('precision_transfers', JSON.stringify(state.recentDrops)); }
+  catch (e) { console.error('Failed to save transfers to local storage', e); }
+}
+
+function saveActiveSession() {
   try {
-    localStorage.setItem('precision_transfers', JSON.stringify(state.recentDrops));
-  } catch (e) {
-    console.error('Failed to save transfers to local storage', e);
+    if (state.activeSession) sessionStorage.setItem('dropshare_active_session', JSON.stringify(state.activeSession));
+    else sessionStorage.removeItem('dropshare_active_session');
+  } catch (error) { console.warn('Could not persist sender session in this tab.', error); }
+}
+
+function loadActiveSession() {
+  try {
+    const value = sessionStorage.getItem('dropshare_active_session');
+    state.activeSession = value ? JSON.parse(value) : null;
+  } catch (error) { state.activeSession = null; }
+}
+
+async function refreshSessionManagement() {
+  if (!state.activeSession) return;
+  const { token, ownerSecret } = state.activeSession;
+  try {
+    const response = await fetch(`${API_BASE}/shares/${encodeURIComponent(token)}/manage`, {
+      headers: { 'X-Share-Owner': ownerSecret }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success || !result.data) throw new Error(result.message || 'Session details unavailable.');
+    const data = result.data;
+    const drop = state.recentDrops.find(item => item.token === token);
+    if (drop) {
+      const files = Array.isArray(data.files) ? data.files : [];
+      const texts = Array.isArray(data.textEntries) ? data.textEntries : [];
+      drop.title = `${files.length} file(s), ${texts.length} text entr(y/ies)`;
+      drop.type = 'MIXED';
+      drop.size = formatBytes(files.reduce((sum, file) => sum + (Number(file.fileSize) || 0), 0)) + ` • ${texts.length} text entr(y/ies)`;
+      drop.downloads = `${data.downloadCount}/${data.maxDownloads}`;
+      drop.status = data.status;
+      drop.contents = [...files.map(file => file.originalFilename), ...texts.map(entry => entry.title)];
+      saveRecentDrops();
+      renderAuditTable();
+    }
+  } catch (error) { console.info('Session management is unavailable:', error.message); }
+  await refreshAuditLog();
+}
+
+async function refreshAuditLog() {
+  if (!state.activeSession) return;
+  const { token, ownerSecret } = state.activeSession;
+  try {
+    const response = await fetch(`${API_BASE}/shares/${encodeURIComponent(token)}/audit`, {
+      headers: { 'X-Share-Owner': ownerSecret }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success || !Array.isArray(result.data)) return;
+    renderAuditEvents(result.data);
+  } catch (error) { console.info('Audit log is unavailable:', error.message); }
+}
+
+function renderAuditEvents(events) {
+  let section = document.getElementById('real-audit-log');
+  if (!section) {
+    section = document.createElement('section');
+    section.id = 'real-audit-log';
+    section.className = 'section-card';
+    const anchor = document.querySelector('.recent-transfers-section');
+    if (anchor) anchor.appendChild(section);
   }
+  if (!section) return;
+  section.innerHTML = `
+    <div class="section-header"><div class="section-title">Session Audit Log <span class="section-badge">${events.length} events</span></div></div>
+    <div>
+      ${events.length ? events.map(event => `
+        <div style="display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--border-subtle);">
+          <div><strong>${escapeHTML(event.eventType)}</strong><div style="font-size:12px;color:var(--slate-500);">${escapeHTML(event.description)}</div></div>
+          <time style="font-size:11px;color:var(--slate-500);white-space:nowrap;">${escapeHTML(new Date(event.createdAt).toLocaleString())}</time>
+        </div>`).join('') : '<p style="color:var(--slate-500);padding:12px 0;">No activity recorded yet.</p>'}
+    </div>`;
 }
 
 // DOM Elements & Initialization
 document.addEventListener('DOMContentLoaded', () => {
   loadRecentDrops();
+  loadActiveSession();
   initTabs();
   initDropzone();
   initSnippetArea();
@@ -186,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSecurityLabels();
   renderQueue();
   renderAuditTable();
+  if (state.activeSession) refreshSessionManagement();
 
   // A /d/{token}, /share/{token}, or ?token=... URL opens Receiver mode.
   if (getShareTokenFromUrl()) {
@@ -438,6 +513,8 @@ function updateActionState() {
   }
 
   createBtn.disabled = !hasContent || state.isTransferring;
+  const actionLabel = createBtn.querySelector('span');
+  if (actionLabel) actionLabel.textContent = state.activeSession ? 'Add to Existing Session' : 'Create Sharing Session';
   if (!hasContent) {
     createBtn.style.opacity = '0.6';
     createBtn.style.cursor = 'not-allowed';
@@ -455,137 +532,108 @@ function initActionButtons() {
 
 async function executeTransfer() {
   if (state.isTransferring) return;
-
   const createBtn = document.getElementById('create-transfer-btn');
   if (!createBtn) return;
+  const hasFiles = state.activeTab === 'files' && state.selectedFiles.length > 0;
+  const hasText = state.activeTab === 'text' && state.snippetText.trim().length > 0;
+  if (!hasFiles && !hasText) {
+    showToast(state.activeTab === 'files' ? 'Select at least one file.' : 'Enter some text first.', 'error');
+    return;
+  }
 
   state.isTransferring = true;
   updateActionState();
-
   const originalBtnHTML = createBtn.innerHTML;
   createBtn.disabled = true;
-  createBtn.textContent = 'Uploading...';
+  createBtn.textContent = state.activeSession ? 'Adding to session...' : 'Creating session...';
 
   try {
     let response;
-
-    if (state.activeTab === 'files') {
-      if (state.selectedFiles.length === 0) {
-        throw new Error('Please select at least one file.');
-      }
-
-      const formData = new FormData();
-      state.selectedFiles.forEach(file => {
-        if (file.fileRef) formData.append('files', file.fileRef, file.name);
-      });
-      formData.append('expiration', state.expiration);
-      if (state.isPasswordProtected && state.password.trim()) {
-        formData.append('password', state.password);
-      }
-
-      // Do not display fabricated upload percentages. Fetch does not expose upload progress.
-      response = await fetch(`${API_BASE}/shares/file`, {
-        method: 'POST',
-        body: formData
-      });
-    } else {
-      if (!state.snippetText.trim()) {
-        throw new Error('Please enter text before creating a share.');
-      }
-
-      response = await fetch(`${API_BASE}/shares/text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          textContent: state.snippetText,
-          expiration: state.expiration,
-          snippetFormat: state.snippetFormat,
-          password: state.isPasswordProtected && state.password.trim()
-            ? state.password
-            : null
-        })
-      });
-    }
-
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success || !result.data) {
-      throw new Error(result.message || `Transfer failed (HTTP ${response.status}).`);
-    }
-
-    const data = result.data;
-    if (!data.shareToken || !data.otp) {
-      throw new Error('The server response is missing the share token or OTP.');
-    }
-
-    let title;
-    let sizeStr;
-    let typeTag;
-
-    if (state.activeTab === 'files') {
-      if (state.selectedFiles.length === 1) {
-        title = state.selectedFiles[0].name;
-        sizeStr = state.selectedFiles[0].formattedSize;
-        typeTag = state.selectedFiles[0].ext.toLowerCase();
+    const session = state.activeSession;
+    if (session) {
+      if (hasFiles) {
+        const formData = new FormData();
+        state.selectedFiles.forEach(file => { if (file.fileRef) formData.append('files', file.fileRef, file.name); });
+        response = await fetch(`${API_BASE}/shares/${encodeURIComponent(session.token)}/files`, {
+          method: 'POST', headers: { 'X-Share-Owner': session.ownerSecret }, body: formData
+        });
       } else {
-        title = `${state.selectedFiles.length} files payload`;
-        const totalBytes = state.selectedFiles.reduce((total, file) => total + file.size, 0);
-        sizeStr = formatBytes(totalBytes);
-        typeTag = 'archive';
+        response = await fetch(`${API_BASE}/shares/${encodeURIComponent(session.token)}/texts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Share-Owner': session.ownerSecret },
+          body: JSON.stringify({
+            title: `Text entry ${Date.now()}`, textContent: state.snippetText,
+            expiration: state.expiration, snippetFormat: state.snippetFormat
+          })
+        });
       }
+      const appendResult = await response.json().catch(() => ({}));
+      if (!response.ok || !appendResult.success) throw new Error(appendResult.message || `Could not add content (HTTP ${response.status}).`);
+      await refreshSessionManagement();
+      showToast('Content added. The session link and OTP remain unchanged.', 'success');
     } else {
-      title = `Snippet (${state.snippetFormat})`;
-      sizeStr = `${state.snippetText.length} chars`;
-      typeTag = 'code';
+      if (hasFiles) {
+        const formData = new FormData();
+        state.selectedFiles.forEach(file => { if (file.fileRef) formData.append('files', file.fileRef, file.name); });
+        formData.append('expiration', state.expiration);
+        if (state.isPasswordProtected && state.password.trim()) formData.append('password', state.password);
+        response = await fetch(`${API_BASE}/shares/file`, { method: 'POST', body: formData });
+      } else {
+        response = await fetch(`${API_BASE}/shares/text`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            textContent: state.snippetText, expiration: state.expiration,
+            snippetFormat: state.snippetFormat,
+            password: state.isPasswordProtected && state.password.trim() ? state.password : null
+          })
+        });
+      }
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success || !result.data) throw new Error(result.message || `Transfer failed (HTTP ${response.status}).`);
+      const data = result.data;
+      if (!data.shareToken || !data.otp || !data.ownerSecret || !data.resendSecret) {
+        throw new Error('The server response is missing sender session credentials.');
+      }
+      const frontendShareUrl = new URL(window.location.href);
+      frontendShareUrl.searchParams.set('token', data.shareToken);
+      frontendShareUrl.hash = '';
+      const shareUrl = frontendShareUrl.toString();
+      state.activeSession = {
+        token: data.shareToken, ownerSecret: data.ownerSecret, resendSecret: data.resendSecret,
+        createdAt: Date.now(), otpAvailableAt: Date.now() + 10 * 60 * 1000
+      };
+      saveActiveSession();
+      const newDrop = {
+        id: data.shareToken.substring(0, 10),
+        title: hasFiles ? `${state.selectedFiles.length} file(s)` : '1 text entry',
+        type: 'MIXED',
+        size: hasFiles ? formatBytes(state.selectedFiles.reduce((sum, file) => sum + file.size, 0)) : `${state.snippetText.length} chars`,
+        timestamp: 'Just now',
+        expiresIn: state.expiration === 'burn' ? 'Burn after 1 download' : state.expiration,
+        hasPassword: state.isPasswordProtected, downloads: state.expiration === 'burn' ? '0/1' : '0/100',
+        url: shareUrl, token: data.shareToken, status: 'ACTIVE'
+      };
+      state.recentDrops = state.recentDrops.filter(item => item.token !== data.shareToken);
+      state.recentDrops.unshift(newDrop);
+      saveRecentDrops();
+      activeResendContext = { token: data.shareToken, secret: data.resendSecret, availableAt: Date.now() + 10 * 60 * 1000 };
+      openShareModal({ ...newDrop, otp: data.otp });
+      await refreshSessionManagement();
+      showToast('Session created. Add more files or text using the same link and OTP.', 'success');
     }
-
-    // Use this frontend page itself, preserving GitHub Pages' /DropShare/ base path.
-    const frontendShareUrl = new URL(window.location.href);
-    frontendShareUrl.searchParams.set('token', data.shareToken);
-    frontendShareUrl.hash = '';
-    const shareUrl = frontendShareUrl.toString();
-    const newDrop = {
-      id: data.shareToken.substring(0, 10),
-      title,
-      type: typeTag,
-      size: sizeStr,
-      timestamp: 'Just now',
-      expiresIn: state.expiration === 'burn' ? 'Burn after read' : state.expiration,
-      hasPassword: state.isPasswordProtected,
-      downloads: state.expiration === 'burn' ? '0/1' : '0/100',
-      url: shareUrl,
-      token: data.shareToken
-      // Never store the plaintext OTP in localStorage.
-    };
-
-    state.recentDrops.unshift(newDrop);
-    saveRecentDrops();
-    renderAuditTable();
-
-    // Sender-only resend credential stays in memory and is never written to localStorage.
-    activeResendContext = {
-      token: data.shareToken,
-      secret: data.resendSecret,
-      availableAt: Date.now() + 10 * 60 * 1000
-    };
-    openShareModal({ ...newDrop, otp: data.otp });
 
     state.selectedFiles = [];
     renderQueue();
-
     const textarea = document.getElementById('snippet-input');
     if (textarea) textarea.value = '';
     state.snippetText = '';
-
     const passwordInput = document.getElementById('password-input');
     if (passwordInput) passwordInput.value = '';
     state.password = '';
-
     updateActionState();
-    showToast('Share created successfully!', 'success');
-
   } catch (error) {
-    console.error('Error executing transfer:', error);
-    showToast(error.message || 'Could not connect to the backend. Check that Spring Boot is running.', 'error');
+    console.error('ShareDrop session error:', error);
+    showToast(error.message || 'Could not connect to the ShareDrop backend.', 'error');
   } finally {
     state.isTransferring = false;
     createBtn.innerHTML = originalBtnHTML;
@@ -790,6 +838,7 @@ function renderAuditTable() {
           <span class="format-tag">${escapeHTML(drop.type)}</span>
           <span style="font-weight:500;color:var(--slate-900);">${escapeHTML(truncateString(drop.title, 28))}</span>
         </div>
+        ${Array.isArray(drop.contents) && drop.contents.length ? `<div style="font-size:11px;color:var(--slate-500);margin-top:4px;">${drop.contents.map(item => escapeHTML(item)).join(" · ")}</div>` : ""}
       </td>
       <td><span style="color:var(--slate-500);font-family:var(--font-mono);font-size:12px;">${escapeHTML(drop.size)}</span></td>
       <td>
@@ -842,7 +891,8 @@ async function revokeDrop(dropId) {
   try {
     if (drop.token) {
       const response = await fetch(`${API_BASE}/shares/${encodeURIComponent(drop.token)}/revoke`, {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'X-Share-Owner': state.activeSession?.ownerSecret || '' }
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.success) {
@@ -851,6 +901,7 @@ async function revokeDrop(dropId) {
     }
 
     state.recentDrops = state.recentDrops.filter(item => item.id !== dropId);
+    if (state.activeSession?.token === drop.token) { state.activeSession = null; saveActiveSession(); }
     saveRecentDrops();
     renderAuditTable();
     showToast('Share revoked successfully', 'success');
@@ -1071,7 +1122,9 @@ function showReceiverFiles(data, token) {
 
   receiverFileList.replaceChildren();
 
-  if (data.shareType === 'TEXT' && typeof data.textContent === 'string') {
+  const textEntries = Array.isArray(data.textEntries) ? data.textEntries : [];
+  const textsToRender = textEntries.length ? textEntries : (typeof data.textContent === 'string' ? [{ title: 'Protected Text Payload', content: data.textContent }] : []);
+  textsToRender.forEach((entry, entryIndex) => {
     const textCard = document.createElement('div');
     textCard.className = 'receiver-file-item';
     textCard.style.cssText = 'flex-direction:column;align-items:stretch;gap:10px;';
@@ -1081,7 +1134,7 @@ function showReceiverFiles(data, token) {
 
     const title = document.createElement('span');
     title.className = 'receiver-file-name';
-    title.textContent = 'Protected Text Payload';
+    title.textContent = entry.title || `Text entry ${entryIndex + 1}`;
 
     const copyButton = document.createElement('button');
     copyButton.type = 'button';
@@ -1089,7 +1142,7 @@ function showReceiverFiles(data, token) {
     copyButton.textContent = 'Copy Content';
     copyButton.addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(data.textContent);
+        await navigator.clipboard.writeText(entry.content || '');
         showToast('Text copied to clipboard', 'success');
       } catch (error) {
         showToast('Could not copy text', 'error');
@@ -1098,12 +1151,12 @@ function showReceiverFiles(data, token) {
 
     const pre = document.createElement('pre');
     pre.style.cssText = 'white-space:pre-wrap;word-break:break-word;font-family:var(--font-mono);font-size:13px;line-height:1.5;padding:12px;background:#fff;border:1px solid var(--border-subtle);border-radius:8px;max-height:360px;overflow-y:auto;color:var(--slate-900);';
-    pre.textContent = data.textContent;
+    pre.textContent = entry.content || '';
 
     header.append(title, copyButton);
     textCard.append(header, pre);
     receiverFileList.appendChild(textCard);
-  }
+  });
 
   const files = Array.isArray(data.files) ? data.files : [];
   files.forEach(file => {
@@ -1130,7 +1183,7 @@ function showReceiverFiles(data, token) {
     receiverFileList.appendChild(item);
   });
 
-  if (!files.length && !(data.shareType === 'TEXT' && typeof data.textContent === 'string')) {
+  if (!files.length && !textsToRender.length) {
     const empty = document.createElement('p');
     empty.textContent = 'The share was verified, but no downloadable content was returned.';
     receiverFileList.appendChild(empty);
