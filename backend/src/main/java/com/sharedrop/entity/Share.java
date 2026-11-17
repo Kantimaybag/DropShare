@@ -19,6 +19,9 @@ public class Share {
     @Column(name = "public_token", nullable = false, unique = true, length = 64)
     private String publicToken;
 
+    @Column(name = "owner_secret_hash", length = 64)
+    private String ownerSecretHash;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "share_type", nullable = false, length = 10)
     private ShareType shareType;
@@ -65,6 +68,9 @@ public class Share {
 
     public String getPublicToken() { return publicToken; }
     public void setPublicToken(String publicToken) { this.publicToken = publicToken; }
+
+    public String getOwnerSecretHash() { return ownerSecretHash; }
+    public void setOwnerSecretHash(String ownerSecretHash) { this.ownerSecretHash = ownerSecretHash; }
 
     public ShareType getShareType() { return shareType; }
     public void setShareType(ShareType shareType) { this.shareType = shareType; }
