@@ -14,6 +14,8 @@ public class CreateTextShareRequest {
 
     private String snippetFormat;
 
+    private String title;
+
     private String password;
 
     // ── Getters & Setters ────────────────────────────────────────
@@ -23,6 +25,9 @@ public class CreateTextShareRequest {
 
     public String getExpiration() { return expiration; }
     public void setExpiration(String expiration) { this.expiration = expiration; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
     public String getSnippetFormat() { return snippetFormat; }
     public void setSnippetFormat(String snippetFormat) { this.snippetFormat = snippetFormat; }
