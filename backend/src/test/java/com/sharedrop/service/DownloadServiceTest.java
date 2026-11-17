@@ -41,11 +41,14 @@ class DownloadServiceTest {
     @Mock
     private StorageService storageService;
 
+    @Mock
+    private AuditLogService auditLogService;
+
     private DownloadService downloadService;
 
     @BeforeEach
     void setUp() {
-        downloadService = new DownloadService(shareRepository, fileRepository, otpRepository, storageService);
+        downloadService = new DownloadService(shareRepository, fileRepository, otpRepository, storageService, auditLogService);
     }
 
     @Test
