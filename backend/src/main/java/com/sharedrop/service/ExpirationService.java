@@ -21,14 +21,17 @@ public class ExpirationService {
     private final ShareRepository shareRepository;
     private final FileRepository fileRepository;
     private final StorageService storageService;
+    private final AuditLogService auditLogService;
 
     public ExpirationService(
             ShareRepository shareRepository,
             FileRepository fileRepository,
-            StorageService storageService) {
+            StorageService storageService,
+            AuditLogService auditLogService) {
         this.shareRepository = shareRepository;
         this.fileRepository = fileRepository;
         this.storageService = storageService;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -45,6 +48,7 @@ public class ExpirationService {
 
         for (Share share : expiredShares) {
             share.setShareStatus(ShareStatus.EXPIRED);
+            auditLogService.record(share, "SESSION_EXPIRED", "Session reached its expiration time.");
             shareRepository.save(share);
             log.info("Auto-expired share id={}", share.getId());
         }
@@ -80,7 +84,8 @@ public class ExpirationService {
                 }
             }
 
-            // Remove database record (cascades to files and OTP)
+            auditLogService.record(share, "SESSION_DESTROYED", "Session content and database records were permanently deleted.");
+            // Remove database record (cascades to files, texts, and OTP; audit log is retained separately).
             shareRepository.delete(share);
             count++;
             log.debug("Cleaned up expired/revoked share id={}", share.getId());
