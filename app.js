@@ -182,8 +182,14 @@ function loadActiveSession() {
   try {
     const value = sessionStorage.getItem('dropshare_active_session');
     state.activeSession = value ? JSON.parse(value) : null;
+    if (state.activeSession?.token && state.activeSession?.resendSecret) {
+      activeResendContext = {
+        token: state.activeSession.token,
+        secret: state.activeSession.resendSecret,
+        availableAt: Number(state.activeSession.otpAvailableAt) || Date.now()
+      };
+    }
   } catch (error) { state.activeSession = null; }
-}
 
 async function refreshSessionManagement() {
   if (!state.activeSession) return;
@@ -758,6 +764,11 @@ async function resendCurrentOtp() {
     otpInput.value = result.data.otp;
     activeResendContext.secret = result.data.resendSecret;
     activeResendContext.availableAt = Date.now() + 10 * 60 * 1000;
+    if (state.activeSession?.token === activeResendContext.token) {
+      state.activeSession.resendSecret = result.data.resendSecret;
+      state.activeSession.otpAvailableAt = activeResendContext.availableAt;
+      saveActiveSession();
+    }
     if (copyOtpButton) copyOtpButton.disabled = false;
     showToast('New OTP generated. Share it with the recipient.', 'success');
   } catch (error) {
@@ -796,7 +807,7 @@ function openShareModal(drop) {
     if (otpSection) otpSection.style.display = 'block';
   } else {
     if (otpInput) otpInput.value = '';
-    if (otpSection) otpSection.style.display = 'none';
+    if (otpSection) otpSection.style.display = activeResendContext?.token === drop.token ? 'block' : 'none';
   }
 
   renderShareQRCode(qrContainer, drop.url);
@@ -857,7 +868,8 @@ function renderAuditTable() {
       <td>
         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
           <button type="button" class="btn btn-ghost btn-sm" data-copy-drop="${escapeHTML(drop.id)}" title="Copy Drop Link">Copy</button>
-          <button type="button" class="btn btn-destructive btn-sm" data-revoke-drop="${escapeHTML(drop.id)}" title="Revoke and destroy drop">Revoke</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-manage-drop="${escapeHTML(drop.id)}" ${state.activeSession?.token === drop.token ? '' : 'disabled'} title="Manage session">Manage</button>
+          <button type="button" class="btn btn-destructive btn-sm" data-revoke-drop="${escapeHTML(drop.id)}" ${state.activeSession?.token === drop.token ? '' : 'disabled'} title="Revoke and destroy drop">Revoke</button>
         </div>
       </td>
     </tr>
@@ -873,7 +885,25 @@ function renderAuditTable() {
   tbody.querySelectorAll('[data-revoke-drop]').forEach(button => {
     button.addEventListener('click', () => revokeDrop(button.dataset.revokeDrop));
   });
+  tbody.querySelectorAll('[data-manage-drop]').forEach(button => {
+    button.addEventListener('click', () => openExistingSession(button.dataset.manageDrop));
+  });
 }
+
+function openExistingSession(dropId) {
+  const drop = state.recentDrops.find(item => item.id === dropId);
+  if (!drop || !state.activeSession || state.activeSession.token !== drop.token) {
+    showToast('Open the original sender browser tab to manage this session.', 'error');
+    return;
+  }
+  activeResendContext = {
+    token: state.activeSession.token,
+    secret: state.activeSession.resendSecret,
+    availableAt: Number(state.activeSession.otpAvailableAt) || Date.now()
+  };
+  openShareModal(drop);
+}
+
 
 async function copyDropLink(url) {
   try {
