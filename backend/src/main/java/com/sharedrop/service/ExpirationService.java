@@ -85,8 +85,9 @@ public class ExpirationService {
      */
     @Transactional
     public int cleanupExpiredFiles(int batchSize) {
+        // COMPLETED sessions are destroyed by cleanupCompletedSession after the final file finishes streaming.
         List<Share> inactiveShares = shareRepository.findByShareStatusIn(
-                List.of(ShareStatus.EXPIRED, ShareStatus.REVOKED, ShareStatus.COMPLETED)
+                List.of(ShareStatus.EXPIRED, ShareStatus.REVOKED)
         );
 
         int count = 0;
