@@ -27,6 +27,8 @@ public class AuditLogService {
     public void record(Share share, String eventType, String description) {
         AuditLog event = new AuditLog();
         event.setShareId(share.getId());
+        event.setShareTokenHash(share.getPublicToken());
+        event.setOwnerSecretHash(share.getOwnerSecretHash());
         event.setEventType(eventType);
         event.setDescription(description);
         auditRepository.save(event);
@@ -34,13 +36,18 @@ public class AuditLogService {
 
     @Transactional(readOnly = true)
     public List<AuditEventResponse> getForOwner(String rawToken, String ownerSecret) {
-        Share share = shareRepository.findByPublicToken(HashUtil.sha256(rawToken))
-                .orElseThrow(() -> new ResourceNotFoundException("Share not found"));
-        if (share.getOwnerSecretHash() == null || ownerSecret == null
-                || !HashUtil.sha256(ownerSecret).equals(share.getOwnerSecretHash())) {
-            throw new InvalidOtpException("Sender authorization failed.");
+        String tokenHash = HashUtil.sha256(rawToken);
+        String ownerHash = ownerSecret == null ? "" : HashUtil.sha256(ownerSecret);
+        List<AuditLog> events = auditRepository.findByShareTokenHashAndOwnerSecretHashOrderByCreatedAtDesc(tokenHash, ownerHash);
+        if (events.isEmpty()) {
+            Share share = shareRepository.findByPublicToken(tokenHash)
+                    .orElseThrow(() -> new ResourceNotFoundException("Share not found"));
+            if (share.getOwnerSecretHash() == null || !ownerHash.equals(share.getOwnerSecretHash())) {
+                throw new InvalidOtpException("Sender authorization failed.");
+            }
+            events = auditRepository.findByShareIdOrderByCreatedAtDesc(share.getId());
         }
-        return auditRepository.findByShareIdOrderByCreatedAtDesc(share.getId()).stream()
+        return events.stream()
                 .map(event -> new AuditEventResponse(event.getEventType(), event.getDescription(), event.getCreatedAt().toString()))
                 .collect(Collectors.toList());
     }
