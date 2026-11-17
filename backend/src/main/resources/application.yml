@@ -63,7 +63,7 @@ app:
 
   otp:
     length: 6
-    expiration-minutes: 30
+    expiration-minutes: 10
     max-attempts: 5
     lockout-minutes: 15
 
