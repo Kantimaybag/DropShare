@@ -5,6 +5,10 @@
 
 const API_BASE = '/api/v1';
 
+// Kept in memory only. Never save the sender credential in localStorage.
+let activeResendContext = null;
+let resendCountdownInterval = null;
+
 function getShareTokenFromUrl() {
   const path = window.location.pathname;
   const match = path.match(/^\/(?:d|share)\/([A-Za-z0-9_-]+)/);
@@ -534,7 +538,11 @@ async function executeTransfer() {
       typeTag = 'code';
     }
 
-    const shareUrl = data.shareUrl || `${window.location.origin}/d/${encodeURIComponent(data.shareToken)}`;
+    // Use this frontend page itself, preserving GitHub Pages' /DropShare/ base path.
+    const frontendShareUrl = new URL(window.location.href);
+    frontendShareUrl.searchParams.set('token', data.shareToken);
+    frontendShareUrl.hash = '';
+    const shareUrl = frontendShareUrl.toString();
     const newDrop = {
       id: data.shareToken.substring(0, 10),
       title,
@@ -553,7 +561,12 @@ async function executeTransfer() {
     saveRecentDrops();
     renderAuditTable();
 
-    // Keep the OTP only in memory long enough to show it in the sender modal.
+    // Sender-only resend credential stays in memory and is never written to localStorage.
+    activeResendContext = {
+      token: data.shareToken,
+      secret: data.resendSecret,
+      availableAt: Date.now() + 10 * 60 * 1000
+    };
     openShareModal({ ...newDrop, otp: data.otp });
 
     state.selectedFiles = [];
@@ -630,6 +643,83 @@ function initModal() {
   });
 }
 
+function ensureResendOtpControls(otpSection) {
+  if (!otpSection) return;
+  let status = document.getElementById('modal-resend-status');
+  if (!status) {
+    status = document.createElement('p');
+    status.id = 'modal-resend-status';
+    status.style.cssText = 'margin:8px 0 0;font-size:12px;color:var(--slate-500);';
+    otpSection.appendChild(status);
+  }
+  let button = document.getElementById('modal-resend-otp');
+  if (!button) {
+    button = document.createElement('button');
+    button.type = 'button';
+    button.id = 'modal-resend-otp';
+    button.className = 'btn btn-secondary';
+    button.style.cssText = 'margin-top:10px;width:100%;';
+    button.textContent = 'Resend OTP';
+    otpSection.appendChild(button);
+    button.addEventListener('click', resendCurrentOtp);
+  }
+  updateResendOtpControls();
+}
+
+function updateResendOtpControls() {
+  const button = document.getElementById('modal-resend-otp');
+  const status = document.getElementById('modal-resend-status');
+  if (!button || !status) return;
+
+  if (!activeResendContext || !activeResendContext.secret) {
+    button.disabled = true;
+    status.textContent = 'OTP resend is available only in the original sender session.';
+    return;
+  }
+
+  const remaining = Math.ceil((activeResendContext.availableAt - Date.now()) / 1000);
+  if (remaining > 0) {
+    button.disabled = true;
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
+    status.textContent = `You can resend a new OTP in ${minutes}:${String(seconds).padStart(2, '0')}.`;
+  } else {
+    button.disabled = false;
+    status.textContent = 'The OTP has expired. You can now generate a replacement.';
+  }
+}
+
+async function resendCurrentOtp() {
+  const button = document.getElementById('modal-resend-otp');
+  const otpInput = document.getElementById('modal-otp-value');
+  const copyOtpButton = document.getElementById('modal-copy-otp');
+  if (!activeResendContext || !activeResendContext.secret || !button) return;
+
+  button.disabled = true;
+  button.textContent = 'Generating...';
+  try {
+    const response = await fetch(`${API_BASE}/shares/${encodeURIComponent(activeResendContext.token)}/resend-otp`, {
+      method: 'POST',
+      headers: { 'X-Resend-Secret': activeResendContext.secret }
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success || !result.data) {
+      throw new Error(result.message || 'Could not resend OTP.');
+    }
+
+    otpInput.value = result.data.otp;
+    activeResendContext.secret = result.data.resendSecret;
+    activeResendContext.availableAt = Date.now() + 10 * 60 * 1000;
+    if (copyOtpButton) copyOtpButton.disabled = false;
+    showToast('New OTP generated. Share it with the recipient.', 'success');
+  } catch (error) {
+    showToast(error.message || 'Could not resend OTP.', 'error');
+  } finally {
+    button.textContent = 'Resend OTP';
+    updateResendOtpControls();
+  }
+}
+
 function openShareModal(drop) {
   const modal = document.getElementById('share-modal');
   const shareInput = document.getElementById('modal-share-url');
@@ -662,6 +752,9 @@ function openShareModal(drop) {
   }
 
   renderShareQRCode(qrContainer, drop.url);
+  ensureResendOtpControls(otpSection);
+  if (resendCountdownInterval) clearInterval(resendCountdownInterval);
+  resendCountdownInterval = setInterval(updateResendOtpControls, 1000);
   modal.classList.add('open');
 }
 
