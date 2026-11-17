@@ -31,6 +31,9 @@ public class OtpVerification {
     @Column(name = "verified_at")
     private Instant verifiedAt;
 
+    @Column(name = "resend_secret_hash", length = 64)
+    private String resendSecretHash;
+
     // ── Getters & Setters ────────────────────────────────────────
 
     public Long getId() { return id; }
@@ -53,6 +56,9 @@ public class OtpVerification {
 
     public Instant getVerifiedAt() { return verifiedAt; }
     public void setVerifiedAt(Instant verifiedAt) { this.verifiedAt = verifiedAt; }
+
+    public String getResendSecretHash() { return resendSecretHash; }
+    public void setResendSecretHash(String resendSecretHash) { this.resendSecretHash = resendSecretHash; }
 
     public boolean isExpired() {
         return Instant.now().isAfter(expiresAt);
