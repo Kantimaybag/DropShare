@@ -640,7 +640,15 @@ async function executeTransfer() {
     updateActionState();
   } catch (error) {
     console.error('ShareDrop session error:', error);
-    showToast(error.message || 'Could not connect to the ShareDrop backend.', 'error');
+    if (state.activeSession && /no longer active|expired|download limit|revoked/i.test(String(error.message))) {
+      state.activeSession = null;
+      activeResendContext = null;
+      saveActiveSession();
+      updateActionState();
+      showToast('This session has ended. Your next upload will create a new session.', 'warning');
+    } else {
+      showToast(error.message || 'Could not connect to the ShareDrop backend.', 'error');
+    }
   } finally {
     state.isTransferring = false;
     createBtn.innerHTML = originalBtnHTML;
@@ -856,7 +864,7 @@ function renderAuditTable() {
       <td><span style="color:var(--slate-500);font-family:var(--font-mono);font-size:12px;">${escapeHTML(drop.size)}</span></td>
       <td>
         <span class="${String(drop.expiresIn).toLowerCase().includes('burn') || String(drop.expiresIn).includes('10m') ? 'badge-expiring' : 'badge-active'}">
-          <span class="status-dot"></span>${escapeHTML(drop.expiresIn)}
+          <span class="status-dot"></span>${escapeHTML(drop.status && drop.status !== "ACTIVE" ? drop.status : drop.expiresIn)}
         </span>
       </td>
       <td>
