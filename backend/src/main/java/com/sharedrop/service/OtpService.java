@@ -4,6 +4,7 @@ import com.sharedrop.dto.request.VerifyOtpRequest;
 import com.sharedrop.dto.response.FileInfoResponse;
 import com.sharedrop.dto.response.VerifyOtpResponse;
 import com.sharedrop.dto.response.ResendOtpResponse;
+import com.sharedrop.dto.response.TextEntryResponse;
 import com.sharedrop.entity.OtpVerification;
 import com.sharedrop.entity.Share;
 import com.sharedrop.enums.ShareStatus;
@@ -13,6 +14,7 @@ import com.sharedrop.exception.ResourceNotFoundException;
 import com.sharedrop.exception.ShareExpiredException;
 import com.sharedrop.repository.OtpRepository;
 import com.sharedrop.repository.ShareRepository;
+import com.sharedrop.repository.SharedTextRepository;
 import com.sharedrop.security.OtpGenerator;
 import com.sharedrop.security.TokenGenerator;
 import com.sharedrop.util.HashUtil;
@@ -34,6 +36,8 @@ public class OtpService {
 
     private final OtpRepository otpRepository;
     private final ShareRepository shareRepository;
+    private final SharedTextRepository textRepository;
+    private final AuditLogService auditLogService;
 
     private final int maxAttempts;
     private final int lockoutMinutes;
@@ -42,11 +46,15 @@ public class OtpService {
     public OtpService(
             OtpRepository otpRepository,
             ShareRepository shareRepository,
+            SharedTextRepository textRepository,
+            AuditLogService auditLogService,
             @Value("${app.otp.max-attempts:5}") int maxAttempts,
             @Value("${app.otp.lockout-minutes:15}") int lockoutMinutes,
             @Value("${app.otp.expiration-minutes:10}") int otpExpirationMinutes) {
         this.otpRepository = otpRepository;
         this.shareRepository = shareRepository;
+        this.textRepository = textRepository;
+        this.auditLogService = auditLogService;
         this.maxAttempts = maxAttempts;
         this.lockoutMinutes = lockoutMinutes;
         this.otpExpirationMinutes = otpExpirationMinutes;
@@ -171,26 +179,22 @@ public class OtpService {
         otpVerification.setLockedUntil(null);
         otpRepository.save(otpVerification);
 
+        auditLogService.record(share, "OTP_VERIFIED", "Recipient successfully verified the session OTP.");
         log.info("OTP verified successfully for share id={}", share.getId());
 
         VerifyOtpResponse response = new VerifyOtpResponse();
         response.setShareType(share.getShareType().name());
-
-        if (share.getShareType() == ShareType.TEXT) {
-            response.setTextContent(share.getTextContent());
-            response.setFiles(new ArrayList<>());
-        } else {
-            List<FileInfoResponse> files = new ArrayList<>();
-            if (share.getFiles() != null) {
-                share.getFiles().forEach(f -> files.add(new FileInfoResponse(
-                        f.getId(),
-                        f.getOriginalFilename(),
-                        f.getContentType(),
-                        f.getFileSize()
-                )));
-            }
-            response.setFiles(files);
+        List<FileInfoResponse> files = new ArrayList<>();
+        if (share.getFiles() != null) {
+            share.getFiles().forEach(f -> files.add(new FileInfoResponse(
+                    f.getId(), f.getOriginalFilename(), f.getContentType(), f.getFileSize())));
         }
+        response.setFiles(files);
+        List<TextEntryResponse> textEntries = new ArrayList<>();
+        textRepository.findByShareIdOrderByCreatedAtAsc(share.getId()).forEach(entry -> textEntries.add(
+                new TextEntryResponse(entry.getId(), entry.getTitle(), entry.getContent(), entry.getFormat(), entry.getCreatedAt().toString())));
+        response.setTextEntries(textEntries);
+        if (textEntries.isEmpty()) response.setTextContent(share.getTextContent());
 
         return response;
     }
