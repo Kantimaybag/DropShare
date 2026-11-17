@@ -5,6 +5,9 @@ import com.sharedrop.dto.request.CreateTextShareRequest;
 import com.sharedrop.dto.response.ApiResponse;
 import com.sharedrop.dto.response.CreateShareResponse;
 import com.sharedrop.dto.response.ShareStatusResponse;
+import com.sharedrop.dto.response.ShareManagementResponse;
+import com.sharedrop.dto.response.AuditEventResponse;
+import com.sharedrop.service.AuditLogService;
 import com.sharedrop.security.RateLimitService;
 import com.sharedrop.service.ShareService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,14 +34,17 @@ public class ShareController {
 
     private final ShareService shareService;
     private final RateLimitService rateLimitService;
+    private final AuditLogService auditLogService;
     private final int maxUploadRate;
 
     public ShareController(
             ShareService shareService,
             RateLimitService rateLimitService,
+            AuditLogService auditLogService,
             @Value("${app.security.rate-limit.max-upload-requests-per-minute:10}") int maxUploadRate) {
         this.shareService = shareService;
         this.rateLimitService = rateLimitService;
+        this.auditLogService = auditLogService;
         this.maxUploadRate = maxUploadRate;
     }
 
@@ -80,6 +86,44 @@ public class ShareController {
                 .body(ApiResponse.success("Text share created successfully", response));
     }
 
+    @PostMapping(value = "/{token}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Add files to an existing session")
+    public ResponseEntity<ApiResponse<Void>> addFiles(
+            @PathVariable String token,
+            @RequestHeader("X-Share-Owner") String ownerSecret,
+            @RequestParam("files") List<MultipartFile> files) {
+        shareService.addFilesToSession(token, ownerSecret, files);
+        return ResponseEntity.ok(ApiResponse.success("Files added to the existing session"));
+    }
+
+    @PostMapping(value = "/{token}/texts", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Add a text entry to an existing session")
+    public ResponseEntity<ApiResponse<Void>> addText(
+            @PathVariable String token,
+            @RequestHeader("X-Share-Owner") String ownerSecret,
+            @Valid @RequestBody CreateTextShareRequest request) {
+        shareService.addTextToSession(token, ownerSecret, request);
+        return ResponseEntity.ok(ApiResponse.success("Text added to the existing session"));
+    }
+
+    @GetMapping("/{token}/manage")
+    @Operation(summary = "Get sender view of a sharing session")
+    public ResponseEntity<ApiResponse<ShareManagementResponse>> manage(
+            @PathVariable String token,
+            @RequestHeader("X-Share-Owner") String ownerSecret) {
+        return ResponseEntity.ok(ApiResponse.success("Session details retrieved",
+                shareService.getManagementDetails(token, ownerSecret)));
+    }
+
+    @GetMapping("/{token}/audit")
+    @Operation(summary = "Get the session audit log")
+    public ResponseEntity<ApiResponse<List<AuditEventResponse>>> audit(
+            @PathVariable String token,
+            @RequestHeader("X-Share-Owner") String ownerSecret) {
+        return ResponseEntity.ok(ApiResponse.success("Audit log retrieved",
+                auditLogService.getForOwner(token, ownerSecret)));
+    }
+
     @GetMapping("/{token}/status")
     @Operation(summary = "Get share status", description = "Returns active/expired/revoked status without exposing content")
     public ResponseEntity<ApiResponse<ShareStatusResponse>> getShareStatus(
@@ -97,12 +141,13 @@ public class ShareController {
     @Operation(summary = "Revoke share", description = "Instantly revokes a share and purges its stored files")
     public ResponseEntity<ApiResponse<Void>> revokeShare(
             @PathVariable("token") String token,
+            @RequestHeader("X-Share-Owner") String ownerSecret,
             HttpServletRequest request) {
 
         String clientIp = getClientIp(request);
         rateLimitService.checkPerMinute("revoke:" + clientIp, 20);
 
-        shareService.revokeShare(token);
+        shareService.revokeShare(token, ownerSecret);
         return ResponseEntity.ok(ApiResponse.success("Share revoked successfully"));
     }
 
