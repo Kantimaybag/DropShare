@@ -11,6 +11,7 @@ import com.sharedrop.exception.InvalidOtpException;
 import com.sharedrop.exception.ShareExpiredException;
 import com.sharedrop.repository.OtpRepository;
 import com.sharedrop.repository.ShareRepository;
+import com.sharedrop.repository.SharedTextRepository;
 import com.sharedrop.util.HashUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,11 +38,17 @@ class OtpServiceTest {
     @Mock
     private ShareRepository shareRepository;
 
+    @Mock
+    private SharedTextRepository sharedTextRepository;
+
+    @Mock
+    private AuditLogService auditLogService;
+
     private OtpService otpService;
 
     @BeforeEach
     void setUp() {
-        otpService = new OtpService(otpRepository, shareRepository, 5, 15);
+        otpService = new OtpService(otpRepository, shareRepository, sharedTextRepository, auditLogService, 5, 15, 10);
     }
 
     @Test
