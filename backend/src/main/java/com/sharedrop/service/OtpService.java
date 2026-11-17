@@ -98,6 +98,7 @@ public class OtpService {
         verification.setLockedUntil(null);
         verification.setVerifiedAt(null);
         otpRepository.save(verification);
+        auditLogService.record(share, "OTP_RESENT", "Sender generated a replacement OTP.");
 
         ResendOtpResponse response = new ResendOtpResponse();
         response.setOtp(newOtp);
