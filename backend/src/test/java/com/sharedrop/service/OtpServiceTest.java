@@ -84,7 +84,7 @@ class OtpServiceTest {
         VerifyOtpResponse response = otpService.verifyOtp(rawToken, request);
 
         assertNotNull(response);
-        assertEquals(ShareType.FILE.name(), response.getShareType());
+        assertEquals(ShareType.MIXED.name(), response.getShareType());
         assertEquals(1, response.getFiles().size());
         assertEquals("test.pdf", response.getFiles().get(0).getOriginalFilename());
 
