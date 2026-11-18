@@ -27,4 +27,4 @@ jobs:
       - name: Run backend tests
         env:
           SHARE_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-        run: ./mvnw --batch-mode --no-transfer-progress test
+        run: bash ./mvnw --batch-mode --no-transfer-progress test
