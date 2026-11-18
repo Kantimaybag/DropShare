@@ -133,7 +133,7 @@ const state = {
   expiration: '24h',
   isPasswordProtected: false,
   password: '',
-  isE2EE: true,
+  isE2EE: false,
   isTransferring: false,
   recentDrops: [],
   activeSession: null
@@ -592,7 +592,9 @@ async function executeTransfer() {
         response = await fetch(`${API_BASE}/shares/text`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            textContent: state.snippetText, expiration: state.expiration,
+            title: 'Text entry',
+            textContent: state.snippetText,
+            expiration: state.expiration,
             snippetFormat: state.snippetFormat,
             password: state.isPasswordProtected && state.password.trim() ? state.password : null
           })
