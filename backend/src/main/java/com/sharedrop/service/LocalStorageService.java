@@ -79,13 +79,12 @@ public class LocalStorageService implements StorageService {
         if (!Files.isRegularFile(file) || !Files.isReadable(file)) {
             throw new ResourceNotFoundException("Encrypted file not found or unreadable: " + storageKey);
         }
-        return new InputStreamResource(() -> {
-            try {
-                return encryptionService.decryptingStream(Files.newInputStream(file));
-            } catch (IOException e) {
-                throw new StorageException("Could not open encrypted file: " + storageKey, e);
-            }
-        });
+        try {
+            return new InputStreamResource(
+                    encryptionService.decryptingStream(Files.newInputStream(file)));
+        } catch (IOException e) {
+            throw new StorageException("Could not open encrypted file: " + storageKey, e);
+        }
     }
 
     @Override
