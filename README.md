@@ -42,8 +42,8 @@ dropshare/
 
 ## Key Features
 
-1. **Zero-Knowledge / Ephemeral Sharing**:
-   - Files and texts are accessible only with the combination of the unique public link and the 6-digit OTP.
+1. **Server-Side Encrypted / Ephemeral Sharing**:
+   - Files and texts are encrypted on the server using AES-256-GCM at rest. Recipients need the unique public link and 6-digit OTP to access shared content.
    - Sequential IDs are never exposed; high-entropy 192-bit cryptographic tokens are generated using `SecureRandom` and indexed via SHA-256 hashes.
    - OTPs are hashed using **BCrypt** (cost factor 10). Plaintext OTPs are returned only once to the sender and never stored.
 
