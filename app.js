@@ -138,7 +138,7 @@ const state = {
   activeSession: null
 };
 
-// LocalStorage Persistence for Audit Logs
+// LocalStorage Persistence for Recent Drops
 // Load Transfer History
 function loadRecentDrops() {
     try {
@@ -214,7 +214,7 @@ async function refreshSessionManagement() {
       drop.status = data.status;
       drop.contents = [...files.map(file => file.originalFilename), ...texts.map(entry => entry.title)];
       saveRecentDrops();
-      renderAuditTable();
+      renderActiveDropsTable();
     }
   } catch (error) { console.info('Session management is unavailable:', error.message); }
   await refreshAccessLog();
@@ -230,7 +230,7 @@ async function refreshAccessLog() {
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.success || !Array.isArray(result.data)) return;
     renderAccessEvents(result.data);
-  } catch (error) { console.info('Audit log is unavailable:', error.message); }
+  } catch (error) { console.info('Access log is unavailable:', error.message); }
 }
 
 function renderAccessEvents(events) {
@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initReceiverMode();
   updateTransferLabels();
   renderQueue();
-  renderAuditTable();
+  renderActiveDropsTable();
   if (state.activeSession) refreshSessionManagement();
 
   // A /d/{token}, /share/{token}, or ?token=... URL opens Receiver mode.
@@ -839,8 +839,8 @@ function closeShareModal() {
   if (resendCountdownInterval) { clearInterval(resendCountdownInterval); resendCountdownInterval = null; }
 }
 
-// Render Audit Logs / Recent Drops Table
-function renderAuditTable() {
+// Render Active Drops History
+function renderActiveDropsTable() {
   const tbody = document.getElementById('audit-table-body');
   const badgeCount = document.getElementById('history-count');
   if (!tbody) return;
@@ -954,7 +954,7 @@ async function revokeDrop(dropId) {
     saveRecentDrops();
     await refreshAccessLog();
     if (state.activeSession?.token === drop.token) { state.activeSession = null; saveActiveSession(); activeResendContext = null; }
-    renderAuditTable();
+    renderActiveDropsTable();
     showToast('Session revoked. Its contents are queued for destruction.', 'success');
   } catch (error) {
     console.error('Revoke failed:', error);
