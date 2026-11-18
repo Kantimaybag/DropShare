@@ -6,6 +6,8 @@ import com.sharedrop.dto.response.CreateShareResponse;
 import com.sharedrop.entity.OtpVerification;
 import com.sharedrop.entity.Share;
 import com.sharedrop.entity.SharedFile;
+import com.sharedrop.entity.SharedTextEntry;
+import org.mockito.ArgumentCaptor;
 import com.sharedrop.enums.ShareStatus;
 import com.sharedrop.enums.ShareType;
 import com.sharedrop.exception.ResourceNotFoundException;
@@ -169,6 +171,10 @@ class ShareServiceTest {
         assertNotNull(response.getShareToken());
         assertEquals(ShareType.MIXED.name(), response.getShareType());
         assertNotNull(response.getOtp());
+        ArgumentCaptor<SharedTextEntry> textCaptor = ArgumentCaptor.forClass(SharedTextEntry.class);
+        verify(sharedTextRepository).save(textCaptor.capture());
+        assertTrue(textCaptor.getValue().getContent().startsWith("enc:v1:"));
+        assertEquals(request.getTextContent(), encryptionService.decryptText(textCaptor.getValue().getContent()));
         verify(shareRepository, times(1)).save(any(Share.class));
         verify(otpRepository, times(1)).save(any(OtpVerification.class));
     }
