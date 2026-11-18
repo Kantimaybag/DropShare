@@ -5,6 +5,7 @@ import com.sharedrop.dto.response.VerifyOtpResponse;
 import com.sharedrop.entity.OtpVerification;
 import com.sharedrop.entity.Share;
 import com.sharedrop.entity.SharedFile;
+import com.sharedrop.entity.SharedTextEntry;
 import com.sharedrop.enums.ShareStatus;
 import com.sharedrop.enums.ShareType;
 import com.sharedrop.exception.InvalidOtpException;
@@ -81,6 +82,13 @@ class OtpServiceTest {
 
         when(shareRepository.findByPublicToken(anyString())).thenReturn(Optional.of(share));
         when(otpRepository.findByShareId(1L)).thenReturn(Optional.of(otp));
+        SharedTextEntry encryptedText = new SharedTextEntry();
+        encryptedText.setId(99L);
+        encryptedText.setTitle("Protected note");
+        encryptedText.setContent(encryptionService.encryptText("Hello from encrypted storage"));
+        encryptedText.setFormat("text");
+        encryptedText.setCreatedAt(Instant.now());
+        when(sharedTextRepository.findByShareIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(encryptedText));
 
         VerifyOtpRequest request = new VerifyOtpRequest(correctOtp);
         VerifyOtpResponse response = otpService.verifyOtp(rawToken, request);
@@ -89,6 +97,8 @@ class OtpServiceTest {
         assertEquals(ShareType.MIXED.name(), response.getShareType());
         assertEquals(1, response.getFiles().size());
         assertEquals("test.pdf", response.getFiles().get(0).getOriginalFilename());
+        assertEquals(1, response.getTextEntries().size());
+        assertEquals("Hello from encrypted storage", response.getTextEntries().get(0).getContent());
 
         assertNotNull(otp.getVerifiedAt());
         assertEquals(0, otp.getFailedAttempts());
