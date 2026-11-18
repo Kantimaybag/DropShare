@@ -569,6 +569,13 @@ async function executeTransfer() {
       const appendResult = await response.json().catch(() => ({}));
       if (!response.ok || !appendResult.success) throw new Error(appendResult.message || `Could not add content (HTTP ${response.status}).`);
       await refreshSessionManagement();
+      const updatedDrop = state.recentDrops.find(item => item.token === session.token);
+      if (updatedDrop) {
+        openShareModal({
+          ...updatedDrop,
+          otp: activeResendContext?.token === session.token ? activeResendContext.otp : null
+        });
+      }
       showToast('Content added. The session link and OTP remain unchanged.', 'success');
     } else {
       if (hasFiles) {
@@ -622,7 +629,7 @@ async function executeTransfer() {
       state.recentDrops = state.recentDrops.filter(item => item.token !== data.shareToken);
       state.recentDrops.unshift(newDrop);
       saveRecentDrops();
-      activeResendContext = { token: data.shareToken, secret: data.resendSecret, availableAt: Date.now() + 10 * 60 * 1000 };
+      activeResendContext = { token: data.shareToken, secret: data.resendSecret, otp: data.otp, availableAt: Date.now() + 10 * 60 * 1000 };
       openShareModal({ ...newDrop, otp: data.otp });
       await refreshSessionManagement();
       showToast('Session created. Add more files or text using the same link and OTP.', 'success');
@@ -771,6 +778,7 @@ async function resendCurrentOtp() {
 
     otpInput.value = result.data.otp;
     activeResendContext.secret = result.data.resendSecret;
+    activeResendContext.otp = result.data.otp;
     activeResendContext.availableAt = Date.now() + 10 * 60 * 1000;
     if (state.activeSession?.token === activeResendContext.token) {
       state.activeSession.resendSecret = result.data.resendSecret;
@@ -910,7 +918,10 @@ function openExistingSession(dropId) {
     secret: state.activeSession.resendSecret,
     availableAt: Number(state.activeSession.otpAvailableAt) || Date.now()
   };
-  openShareModal(drop);
+  openShareModal({
+    ...drop,
+    otp: activeResendContext?.token === drop.token ? activeResendContext.otp : null
+  });
 }
 
 
