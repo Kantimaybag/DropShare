@@ -1,6 +1,5 @@
 package com.sharedrop.service;
 
-import com.sharedrop.exception.StorageException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,9 +14,6 @@ import java.io.ByteArrayInputStream;
 import java.io.SequenceInputStream;
 import java.nio.charset.StandardCharsets;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
