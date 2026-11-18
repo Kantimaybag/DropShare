@@ -38,6 +38,7 @@ public class OtpService {
     private final ShareRepository shareRepository;
     private final SharedTextRepository textRepository;
     private final AuditLogService auditLogService;
+    private final AesGcmEncryptionService encryptionService;
 
     private final int maxAttempts;
     private final int lockoutMinutes;
@@ -48,6 +49,7 @@ public class OtpService {
             ShareRepository shareRepository,
             SharedTextRepository textRepository,
             AuditLogService auditLogService,
+            AesGcmEncryptionService encryptionService,
             @Value("${app.otp.max-attempts:5}") int maxAttempts,
             @Value("${app.otp.lockout-minutes:15}") int lockoutMinutes,
             @Value("${app.otp.expiration-minutes:10}") int otpExpirationMinutes) {
@@ -55,6 +57,7 @@ public class OtpService {
         this.shareRepository = shareRepository;
         this.textRepository = textRepository;
         this.auditLogService = auditLogService;
+        this.encryptionService = encryptionService;
         this.maxAttempts = maxAttempts;
         this.lockoutMinutes = lockoutMinutes;
         this.otpExpirationMinutes = otpExpirationMinutes;
@@ -193,7 +196,7 @@ public class OtpService {
         response.setFiles(files);
         List<TextEntryResponse> textEntries = new ArrayList<>();
         textRepository.findByShareIdOrderByCreatedAtAsc(share.getId()).forEach(entry -> textEntries.add(
-                new TextEntryResponse(entry.getId(), entry.getTitle(), entry.getContent(), entry.getFormat(), entry.getCreatedAt().toString())));
+                new TextEntryResponse(entry.getId(), entry.getTitle(), encryptionService.decryptText(entry.getContent()), entry.getFormat(), entry.getCreatedAt().toString())));
         response.setTextEntries(textEntries);
         if (textEntries.isEmpty()) response.setTextContent(share.getTextContent());
 
