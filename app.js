@@ -207,52 +207,18 @@ async function refreshSessionManagement() {
     if (drop) {
       const files = Array.isArray(data.files) ? data.files : [];
       const texts = Array.isArray(data.textEntries) ? data.textEntries : [];
-      drop.title = `${files.length} file(s), ${texts.length} text entr(y/ies)`;
+      const itemNames = [...files.map(file => file.originalFilename), ...texts.map(entry => entry.title)];
+      drop.title = itemNames.length ? itemNames.join(', ') : 'Shared content';
       drop.type = 'MIXED';
-      drop.size = formatBytes(files.reduce((sum, file) => sum + (Number(file.fileSize) || 0), 0)) + ` • ${texts.length} text entr(y/ies)`;
-      drop.downloads = `${data.downloadCount}/${data.maxDownloads}`;
+      drop.size = files.length
+        ? formatBytes(files.reduce((sum, file) => sum + (Number(file.fileSize) || 0), 0))
+        : (texts.length ? `${texts.length} text entr(y/ies)` : '0 B');
       drop.status = data.status;
-      drop.contents = [...files.map(file => file.originalFilename), ...texts.map(entry => entry.title)];
+      drop.contents = itemNames;
       saveRecentDrops();
       renderActiveDropsTable();
     }
   } catch (error) { console.info('Session management is unavailable:', error.message); }
-  await refreshAccessLog();
-}
-
-async function refreshAccessLog() {
-  if (!state.activeSession) return;
-  const { token, ownerSecret } = state.activeSession;
-  try {
-    const response = await fetch(`${API_BASE}/shares/${encodeURIComponent(token)}/access-log`, {
-      headers: { 'X-Share-Owner': ownerSecret }
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success || !Array.isArray(result.data)) return;
-    renderAccessEvents(result.data);
-  } catch (error) { console.info('Access log is unavailable:', error.message); }
-}
-
-function renderAccessEvents(events) {
-  let section = document.getElementById('real-access-log');
-  if (!section) {
-    section = document.createElement('section');
-    section.id = 'real-access-log';
-    section.className = 'section-card';
-    const anchor = document.querySelector('.recent-transfers-section');
-    if (anchor) anchor.appendChild(section);
-  }
-  if (!section) return;
-  section.innerHTML = `
-    <div class="section-header"><div class="section-title">Access Log <span class="section-badge">${events.length} events</span></div><button type="button" id="refresh-access-log" class="btn btn-ghost btn-sm">Refresh</button></div>
-    <div>
-      ${events.length ? events.map(event => `
-        <div style="display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--border-subtle);">
-          <div><strong>${escapeHTML(event.eventType)}</strong><div style="font-size:12px;color:var(--slate-500);">${escapeHTML(event.description)}</div></div>
-          <time style="font-size:11px;color:var(--slate-500);white-space:nowrap;">${escapeHTML(new Date(event.createdAt).toLocaleString())}</time>
-        </div>`).join('') : '<p style="color:var(--slate-500);padding:12px 0;">No activity recorded yet.</p>'}
-    </div>`;
-  section.querySelector('#refresh-access-log')?.addEventListener('click', refreshAccessLog);
 }
 
 // DOM Elements & Initialization
@@ -618,7 +584,8 @@ async function executeTransfer() {
       saveActiveSession();
       const newDrop = {
         id: data.shareToken.substring(0, 10),
-        title: hasFiles ? `${state.selectedFiles.length} file(s)` : '1 text entry',
+        title: hasFiles ? state.selectedFiles.map(file => file.name).join(', ') : 'Text entry',
+        contents: hasFiles ? state.selectedFiles.map(file => file.name) : ['Text entry'],
         type: 'MIXED',
         size: hasFiles ? formatBytes(state.selectedFiles.reduce((sum, file) => sum + file.size, 0)) : `${state.snippetText.length} chars`,
         timestamp: 'Just now',
@@ -850,7 +817,7 @@ function renderActiveDropsTable() {
   if (state.recentDrops.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" style="text-align:center;color:var(--slate-400);padding:32px 16px;">
+        <td colspan="3" style="text-align:center;color:var(--slate-400);padding:32px 16px;">
           No active drops in this workspace session yet.
         </td>
       </tr>
@@ -858,53 +825,24 @@ function renderActiveDropsTable() {
     return;
   }
 
-  tbody.innerHTML = state.recentDrops.map(drop => `
-    <tr>
-      <td><span class="code-token">${escapeHTML(drop.id)}</span></td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="format-tag">${escapeHTML(drop.type)}</span>
-          <span style="font-weight:500;color:var(--slate-900);">${escapeHTML(truncateString(drop.title, 28))}</span>
-        </div>
-        ${Array.isArray(drop.contents) && drop.contents.length ? `<div style="font-size:11px;color:var(--slate-500);margin-top:4px;">${drop.contents.map(item => escapeHTML(item)).join(" · ")}</div>` : ""}
-      </td>
-      <td><span style="color:var(--slate-500);font-family:var(--font-mono);font-size:12px;">${escapeHTML(drop.size)}</span></td>
-      <td>
-        <span class="${String(drop.expiresIn).toLowerCase().includes('burn') || String(drop.expiresIn).includes('10m') ? 'badge-expiring' : 'badge-active'}">
-          <span class="status-dot"></span>${escapeHTML(drop.status && drop.status !== "ACTIVE" ? drop.status : drop.expiresIn)}
-        </span>
-      </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span title="${drop.hasPassword ? 'Password protected' : 'OTP protected'}" style="color:var(--primary);">
-            ${drop.hasPassword ? 'Password protected' : 'OTP protected'}
-          </span>
-          <span style="font-size:11px;color:var(--slate-500);font-family:var(--font-mono);">${escapeHTML(drop.downloads)}</span>
-        </div>
-      </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
-          <button type="button" class="btn btn-ghost btn-sm" data-copy-drop="${escapeHTML(drop.id)}" title="Copy Drop Link">Copy</button>
-          <button type="button" class="btn btn-secondary btn-sm" data-manage-drop="${escapeHTML(drop.id)}" ${state.activeSession?.token === drop.token ? '' : 'disabled'} title="Manage session">Manage</button>
-          <button type="button" class="btn btn-destructive btn-sm" data-revoke-drop="${escapeHTML(drop.id)}" ${state.activeSession?.token === drop.token ? '' : 'disabled'} title="Revoke and destroy drop">Revoke</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = state.recentDrops.map(drop => {
+    const names = Array.isArray(drop.contents) && drop.contents.length
+      ? drop.contents.join(', ')
+      : (drop.title || 'Shared content');
+    const securityLabel = drop.hasPassword ? 'Password protected' : 'OTP protected';
 
-  tbody.querySelectorAll('[data-copy-drop]').forEach(button => {
-    button.addEventListener('click', () => {
-      const drop = state.recentDrops.find(item => item.id === button.dataset.copyDrop);
-      if (drop) copyDropLink(drop.url);
-    });
-  });
-
-  tbody.querySelectorAll('[data-revoke-drop]').forEach(button => {
-    button.addEventListener('click', () => revokeDrop(button.dataset.revokeDrop));
-  });
-  tbody.querySelectorAll('[data-manage-drop]').forEach(button => {
-    button.addEventListener('click', () => openExistingSession(button.dataset.manageDrop));
-  });
+    return `
+      <tr>
+        <td>
+          <div style="font-weight:500;color:var(--slate-900);">${escapeHTML(names)}</div>
+        </td>
+        <td><span style="color:var(--slate-500);font-family:var(--font-mono);font-size:12px;">${escapeHTML(drop.size || '0 B')}</span></td>
+        <td>
+          <span title="${securityLabel}" style="color:var(--primary);">${securityLabel}</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function openExistingSession(dropId) {
