@@ -131,6 +131,7 @@ $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 $keyBytes = New-Object byte[] 32
 $rng.GetBytes($keyBytes)
 $env:SHARE_ENCRYPTION_KEY = [Convert]::ToBase64String($keyBytes)
+$env:SHARE_ENCRYPTION_KEY  # Copy this value to a secure password manager
 $rng.Dispose()
 ```
 
