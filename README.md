@@ -42,8 +42,8 @@ dropshare/
 
 ## Key Features
 
-1. **Zero-Knowledge / Ephemeral Sharing**:
-   - Files and texts are accessible only with the combination of the unique public link and the 6-digit OTP.
+1. **Server-Side Encrypted / Ephemeral Sharing**:
+   - Files and texts are encrypted on the server using AES-256-GCM at rest. Recipients need the unique public link and 6-digit OTP to access shared content.
    - Sequential IDs are never exposed; high-entropy 192-bit cryptographic tokens are generated using `SecureRandom` and indexed via SHA-256 hashes.
    - OTPs are hashed using **BCrypt** (cost factor 10). Plaintext OTPs are returned only once to the sender and never stored.
 
@@ -122,9 +122,24 @@ CREATE TABLE otp_verifications (
 - **Maven 3.8+** (`mvn -version`)
 - MySQL 8.0+ (optional; dev profile uses zero-dependency file-based H2 database)
 
+### Encryption Key (Required for All Profiles)
+
+DropShare encrypts uploaded files and shared text on the server with AES-256-GCM. Set a Base64-encoded 32-byte key before starting the backend. Generate it once and keep the same value for as long as encrypted data exists. Never commit the key to Git.
+
+```powershell
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$keyBytes = New-Object byte[] 32
+$rng.GetBytes($keyBytes)
+$env:SHARE_ENCRYPTION_KEY = [Convert]::ToBase64String($keyBytes)
+$env:SHARE_ENCRYPTION_KEY  # Copy this value to a secure password manager
+$rng.Dispose()
+```
+
+Save this key securely. If it is lost or changed, previously encrypted files and text cannot be decrypted.
+
 ### Option 1: Instant Development Mode (Zero External Dependencies)
 
-Run with the preconfigured `dev` profile:
+Run with the preconfigured `dev` profile in the same PowerShell terminal where the key was set:
 
 ```powershell
 cd backend
@@ -265,6 +280,7 @@ curl -X POST http://localhost:8080/api/v1/shares/G2r8A_8_d6oT7q-48mK1cZ.../revok
 | `APP_BASE_URL` | `http://localhost:8080` | Canonical public URL used in generated share links |
 | `STORAGE_PATH` | `./uploads` | Filesystem storage path for uploaded payloads |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:8080` | Allowed CORS origins for browser fetch |
+| `SHARE_ENCRYPTION_KEY` | Required, no default | Base64-encoded 32-byte AES-256 key. Keep it secret and stable.
 
 ---
 

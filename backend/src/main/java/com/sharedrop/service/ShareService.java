@@ -50,6 +50,7 @@ public class ShareService {
     private final FileValidator fileValidator;
     private final SharedTextRepository textRepository;
     private final AuditLogService auditLogService;
+    private final AesGcmEncryptionService encryptionService;
 
     private final String baseUrl;
     private final int otpExpirationMinutes;
@@ -63,6 +64,7 @@ public class ShareService {
             FileValidator fileValidator,
             SharedTextRepository textRepository,
             AuditLogService auditLogService,
+            AesGcmEncryptionService encryptionService,
             @Value("${app.base-url:http://localhost:8080}") String baseUrl,
             @Value("${app.otp.expiration-minutes:10}") int otpExpirationMinutes,
             @Value("${app.share.max-downloads-default:100}") int defaultMaxDownloads) {
@@ -73,6 +75,7 @@ public class ShareService {
         this.fileValidator = fileValidator;
         this.textRepository = textRepository;
         this.auditLogService = auditLogService;
+        this.encryptionService = encryptionService;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.otpExpirationMinutes = otpExpirationMinutes;
         this.defaultMaxDownloads = defaultMaxDownloads;
@@ -221,8 +224,8 @@ public class ShareService {
 
         SharedTextEntry textEntry = new SharedTextEntry();
         textEntry.setShare(savedShare);
-        textEntry.setTitle("Text entry");
-        textEntry.setContent(request.getTextContent());
+        textEntry.setTitle(request.getTitle() == null || request.getTitle().isBlank() ? "Text entry" : request.getTitle());
+        textEntry.setContent(encryptionService.encryptText(request.getTextContent()));
         textEntry.setFormat(request.getSnippetFormat() == null ? "text" : request.getSnippetFormat());
         textRepository.save(textEntry);
 
@@ -295,7 +298,7 @@ public class ShareService {
         SharedTextEntry entry = new SharedTextEntry();
         entry.setShare(share);
         entry.setTitle(request.getTitle() == null || request.getTitle().isBlank() ? "Text entry" : request.getTitle());
-        entry.setContent(request.getTextContent());
+        entry.setContent(encryptionService.encryptText(request.getTextContent()));
         entry.setFormat(request.getSnippetFormat() == null ? "text" : request.getSnippetFormat());
         textRepository.save(entry);
         auditLogService.record(share, "TEXT_ADDED", "A text entry was added to the session.");
@@ -316,7 +319,7 @@ public class ShareService {
         response.setFiles(files);
         List<TextEntryResponse> texts = new ArrayList<>();
         textRepository.findByShareIdOrderByCreatedAtAsc(share.getId()).forEach(entry -> texts.add(
-                new TextEntryResponse(entry.getId(), entry.getTitle(), entry.getContent(), entry.getFormat(), entry.getCreatedAt().toString())));
+                new TextEntryResponse(entry.getId(), entry.getTitle(), encryptionService.decryptText(entry.getContent()), entry.getFormat(), entry.getCreatedAt().toString())));
         response.setTextEntries(texts);
         return response;
     }

@@ -4,7 +4,15 @@ Production-ready backend for DropShare, providing secure, ephemeral, OTP-protect
 
 ## Quick Start (Dev Profile with H2)
 
+Set a persistent AES-256 key once in PowerShell, then start the backend. Keep the same key between restarts; losing it makes encrypted content unrecoverable.
+
 ```powershell
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$keyBytes = New-Object byte[] 32
+$rng.GetBytes($keyBytes)
+$env:SHARE_ENCRYPTION_KEY = [Convert]::ToBase64String($keyBytes)
+$env:SHARE_ENCRYPTION_KEY  # Copy this value to a secure password manager
+$rng.Dispose()
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 

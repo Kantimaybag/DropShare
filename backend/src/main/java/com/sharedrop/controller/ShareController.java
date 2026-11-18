@@ -121,14 +121,14 @@ public class ShareController {
                 shareService.getManagementDetails(token, ownerSecret)));
     }
 
-    @GetMapping("/{token}/audit")
-    @Operation(summary = "Get the session audit log")
-    public ResponseEntity<ApiResponse<List<AuditEventResponse>>> audit(
+    @GetMapping("/{token}/access-log")
+    @Operation(summary = "Get the sender access log")
+    public ResponseEntity<ApiResponse<List<AuditEventResponse>>> getAccessLog(
             @PathVariable String token,
             @RequestHeader("X-Share-Owner") String ownerSecret,
             HttpServletRequest request) {
-        rateLimitService.checkPerMinute("audit:" + getClientIp(request), 60);
-        return ResponseEntity.ok(ApiResponse.success("Audit log retrieved",
+        rateLimitService.checkPerMinute("access-log:" + getClientIp(request), 60);
+        return ResponseEntity.ok(ApiResponse.success("Access log retrieved",
                 auditLogService.getForOwner(token, ownerSecret)));
     }
 

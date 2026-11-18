@@ -42,6 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class ShareControllerIntegrationTest {
 
+    private final AesGcmEncryptionService encryptionService = new AesGcmEncryptionService("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -81,12 +83,13 @@ class ShareControllerIntegrationTest {
                 fileValidator,
                 sharedTextRepository,
                 auditLogService,
+                encryptionService,
                 "http://localhost:8080",
                 10,
                 100
         );
 
-        otpService = new OtpService(otpRepository, shareRepository, sharedTextRepository, auditLogService, 5, 15, 10);
+        otpService = new OtpService(otpRepository, shareRepository, sharedTextRepository, auditLogService, encryptionService, 5, 15, 10);
         downloadService = new DownloadService(shareRepository, fileRepository, otpRepository, storageService, auditLogService);
         ExpirationService expirationService = new ExpirationService(shareRepository, fileRepository, storageService, auditLogService);
 
@@ -186,7 +189,7 @@ class ShareControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.shareType").value("MIXED"));
+                .andExpect(jsonPath("$.data.shareType").value("FILE"));
     }
 
     @Test
@@ -254,10 +257,12 @@ class ShareControllerIntegrationTest {
         share.setId(60L);
         share.setShareStatus(ShareStatus.ACTIVE);
         share.setExpiresAt(Instant.now().plusSeconds(3600));
+        share.setOwnerSecretHash(HashUtil.sha256("owner-secret"));
 
         when(shareRepository.findByPublicToken(anyString())).thenReturn(Optional.of(share));
 
-        mockMvc.perform(post("/api/v1/shares/" + rawToken + "/revoke"))
+        mockMvc.perform(post("/api/v1/shares/" + rawToken + "/revoke")
+                        .header("X-Share-Owner", "owner-secret"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Share revoked successfully"));

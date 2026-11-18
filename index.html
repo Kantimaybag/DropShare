@@ -22,7 +22,7 @@
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <!-- App Header -->
@@ -424,18 +424,6 @@
                     </div>
                   </div>
 
-                  <!-- Cryptography Verification -->
-                  <div class="option-row">
-                    <span class="option-label">Encryption</span>
-                    <div class="option-control-group">
-                      <label class="custom-checkbox">
-                        <input type="checkbox" id="enable-e2ee" checked />
-                        <span>
-    OTP-Protected File Sharing
-</span>
-                      </label>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -457,7 +445,7 @@
                       d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
                     ></path>
                   </svg>
-                  <span>Zero-Knowledge Relay</span>
+                  <span>OTP-Protected Sharing</span>
                 </span>
               </div>
 
@@ -482,7 +470,7 @@
             </footer>
           </article>
 
-          <!-- Secondary Section: Recent Drops & Audit Log -->
+          <!-- Secondary Section: Active Drops History -->
           <section
             class="recent-transfers-section"
             aria-label="Active Drops History"
@@ -501,7 +489,7 @@
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline>
                   </svg>
-                  <span>Active Drops & Audit Log</span>
+                  <span>Active Drops</span>
                   <span class="section-badge" id="history-count">0 drops</span>
                 </div>
               </div>
@@ -510,12 +498,9 @@
                 <table class="audit-table">
                   <thead>
                     <tr>
-                      <th>Token</th>
-                      <th>Payload</th>
+                      <th>File Name</th>
                       <th>Size</th>
-                      <th>Validity</th>
                       <th>Security</th>
-                      <th style="text-align: right">Action</th>
                     </tr>
                   </thead>
                   <tbody id="audit-table-body">
@@ -829,6 +814,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-<script src="./app.js"></script>
+<script src="/app.js"></script>
   </body>
 </html>
