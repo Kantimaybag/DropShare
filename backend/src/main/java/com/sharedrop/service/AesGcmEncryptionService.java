@@ -20,8 +20,8 @@ import java.util.Base64;
 
 /**
  * Server-side AES-256-GCM encryption for uploaded content.
- * Each stored object starts with a fresh 12-byte nonce followed by ciphertext and
- * the GCM authentication tag. The encryption key must be supplied through the
+ * Each stored object starts with a format marker, a fresh 12-byte nonce, ciphertext,
+ * and the GCM authentication tag. The encryption key must be supplied through the
  * SHARE_ENCRYPTION_KEY environment variable (Base64-encoded 32-byte key).
  */
 @Service
