@@ -42,6 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class ShareControllerIntegrationTest {
 
+    private final AesGcmEncryptionService encryptionService = new AesGcmEncryptionService("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+
     private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -81,12 +83,13 @@ class ShareControllerIntegrationTest {
                 fileValidator,
                 sharedTextRepository,
                 auditLogService,
+                encryptionService,
                 "http://localhost:8080",
                 10,
                 100
         );
 
-        otpService = new OtpService(otpRepository, shareRepository, sharedTextRepository, auditLogService, 5, 15, 10);
+        otpService = new OtpService(otpRepository, shareRepository, sharedTextRepository, auditLogService, encryptionService, 5, 15, 10);
         downloadService = new DownloadService(shareRepository, fileRepository, otpRepository, storageService, auditLogService);
         ExpirationService expirationService = new ExpirationService(shareRepository, fileRepository, storageService, auditLogService);
 
