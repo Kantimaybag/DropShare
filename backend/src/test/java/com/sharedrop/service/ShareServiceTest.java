@@ -35,6 +35,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ShareServiceTest {
 
+    private final AesGcmEncryptionService encryptionService = new AesGcmEncryptionService("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+
     @Mock
     private ShareRepository shareRepository;
 
@@ -67,6 +69,7 @@ class ShareServiceTest {
                 fileValidator,
                 sharedTextRepository,
                 auditLogService,
+                encryptionService,
                 "http://localhost:8080",
                 10,
                 100
