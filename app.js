@@ -133,7 +133,6 @@ const state = {
   expiration: '24h',
   isPasswordProtected: false,
   password: '',
-  isE2EE: false,
   isTransferring: false,
   recentDrops: [],
   activeSession: null
@@ -267,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initActionButtons();
   initModal();
   initReceiverMode();
-  updateSecurityLabels();
+  updateTransferLabels();
   renderQueue();
   renderAuditTable();
   if (state.activeSession) refreshSessionManagement();
@@ -279,10 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // The current upload flow does not encrypt files client-side. Keep the UI honest.
-function updateSecurityLabels() {
-  const encryptionLabel = document.querySelector('#enable-e2ee')?.parentElement?.querySelector('span');
-  if (encryptionLabel) encryptionLabel.textContent = 'Client-side encryption is not implemented yet';
-
+function updateTransferLabels() {
   document.querySelectorAll('.dropzone-limits .format-tag').forEach(tag => {
     if (tag.textContent.trim().toUpperCase() === 'CLIENT ENCRYPTED') {
       tag.textContent = 'OTP PROTECTED';
@@ -502,13 +498,6 @@ function initOptionsAccordion() {
     state.password = e.target.value;
   });
 
-  // E2EE is not implemented in this frontend. Do not let the UI claim otherwise.
-  const e2eCheckbox = document.getElementById('enable-e2ee');
-  if (e2eCheckbox) {
-    e2eCheckbox.checked = false;
-    e2eCheckbox.disabled = true;
-    state.isE2EE = false;
-  }
 }
 
 // Update Primary Action button state
