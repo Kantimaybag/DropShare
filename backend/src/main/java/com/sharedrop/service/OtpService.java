@@ -187,7 +187,6 @@ public class OtpService {
         log.info("OTP verified successfully for share id={}", share.getId());
 
         VerifyOtpResponse response = new VerifyOtpResponse();
-        response.setShareType(share.getShareType().name());
         List<FileInfoResponse> files = new ArrayList<>();
         if (share.getFiles() != null) {
             share.getFiles().forEach(f -> files.add(new FileInfoResponse(
@@ -198,6 +197,11 @@ public class OtpService {
         textRepository.findByShareIdOrderByCreatedAtAsc(share.getId()).forEach(entry -> textEntries.add(
                 new TextEntryResponse(entry.getId(), entry.getTitle(), encryptionService.decryptText(entry.getContent()), entry.getFormat(), entry.getCreatedAt().toString())));
         response.setTextEntries(textEntries);
+        boolean hasFiles = !files.isEmpty();
+        boolean hasText = !textEntries.isEmpty()
+                || (share.getTextContent() != null && !share.getTextContent().isBlank());
+        response.setShareType(hasFiles && hasText ? ShareType.MIXED.name()
+                : hasText ? ShareType.TEXT.name() : ShareType.FILE.name());
         if (textEntries.isEmpty()) response.setTextContent(share.getTextContent());
 
         return response;
