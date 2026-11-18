@@ -890,7 +890,6 @@ async function revokeDrop(dropId) {
 
     drop.status = 'REVOKED';
     saveRecentDrops();
-    await refreshAccessLog();
     if (state.activeSession?.token === drop.token) { state.activeSession = null; saveActiveSession(); activeResendContext = null; }
     renderActiveDropsTable();
     showToast('Session revoked. Its contents are queued for destruction.', 'success');
