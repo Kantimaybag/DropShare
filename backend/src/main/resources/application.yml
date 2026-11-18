@@ -76,6 +76,8 @@ app:
     batch-size: 100
 
   security:
+    # Required: Base64-encoded 32-byte AES-256 key. Keep this secret outside source control.
+    encryption-key: ${SHARE_ENCRYPTION_KEY}
     rate-limit:
       max-requests-per-minute: 60
       max-upload-requests-per-minute: 10
