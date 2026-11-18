@@ -189,7 +189,10 @@ function loadActiveSession() {
         availableAt: Number(state.activeSession.otpAvailableAt) || Date.now()
       };
     }
-  } catch (error) { state.activeSession = null; }
+  } catch (error) {
+    state.activeSession = null;
+  }
+}
 
 async function refreshSessionManagement() {
   if (!state.activeSession) return;
