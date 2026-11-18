@@ -32,6 +32,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class OtpServiceTest {
 
+    private final AesGcmEncryptionService encryptionService = new AesGcmEncryptionService("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+
     @Mock
     private OtpRepository otpRepository;
 
@@ -48,7 +50,7 @@ class OtpServiceTest {
 
     @BeforeEach
     void setUp() {
-        otpService = new OtpService(otpRepository, shareRepository, sharedTextRepository, auditLogService, 5, 15, 10);
+        otpService = new OtpService(otpRepository, shareRepository, sharedTextRepository, auditLogService, encryptionService, 5, 15, 10);
     }
 
     @Test
