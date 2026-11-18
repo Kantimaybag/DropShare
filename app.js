@@ -834,7 +834,10 @@ function renderActiveDropsTable() {
     return `
       <tr>
         <td>
-          <div style="font-weight:500;color:var(--slate-900);">${escapeHTML(names)}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <span style="font-weight:500;color:var(--slate-900);">${escapeHTML(names)}</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-delete-history="${escapeHTML(drop.id)}" title="Remove from Active Drops history">Delete</button>
+          </div>
         </td>
         <td><span style="color:var(--slate-500);font-family:var(--font-mono);font-size:12px;">${escapeHTML(drop.size || '0 B')}</span></td>
         <td>
@@ -843,6 +846,16 @@ function renderActiveDropsTable() {
       </tr>
     `;
   }).join('');
+
+  tbody.querySelectorAll('[data-delete-history]').forEach(button => {
+    button.addEventListener('click', () => {
+      const dropId = button.dataset.deleteHistory;
+      state.recentDrops = state.recentDrops.filter(item => item.id !== dropId);
+      saveRecentDrops();
+      renderActiveDropsTable();
+      showToast('Drop removed from history. The shared link is not revoked.', 'success');
+    });
+  });
 }
 
 function openExistingSession(dropId) {
