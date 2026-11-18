@@ -69,6 +69,7 @@ app:
     batch-size: 100
 
   security:
+    encryption-key: ${SHARE_ENCRYPTION_KEY}
     rate-limit:
       max-requests-per-minute: 60
       max-upload-requests-per-minute: 10
