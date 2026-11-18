@@ -245,7 +245,7 @@ function renderAuditEvents(events) {
   }
   if (!section) return;
   section.innerHTML = `
-    <div class="section-header"><div class="section-title">Session Audit Log <span class="section-badge">${events.length} events</span></div><button type="button" id="refresh-audit-log" class="btn btn-ghost btn-sm">Refresh</button></div>
+    <div class="section-header"><div class="section-title">Access Log <span class="section-badge">${events.length} events</span></div><button type="button" id="refresh-audit-log" class="btn btn-ghost btn-sm">Refresh</button></div>
     <div>
       ${events.length ? events.map(event => `
         <div style="display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--border-subtle);">
@@ -604,10 +604,15 @@ async function executeTransfer() {
       if (!data.shareToken || !data.otp || !data.ownerSecret || !data.resendSecret) {
         throw new Error('The server response is missing sender session credentials.');
       }
-      const frontendShareUrl = new URL(window.location.href);
-      frontendShareUrl.searchParams.set('token', data.shareToken);
-      frontendShareUrl.hash = '';
-      const shareUrl = frontendShareUrl.toString();
+      // Prefer the backend-generated receiver URL so links work when the UI
+      // and API are deployed on different paths or hosts.
+      let shareUrl = data.shareUrl;
+      if (!shareUrl) {
+        const frontendShareUrl = new URL(window.location.href);
+        frontendShareUrl.searchParams.set('token', data.shareToken);
+        frontendShareUrl.hash = '';
+        shareUrl = frontendShareUrl.toString();
+      }
       state.activeSession = {
         token: data.shareToken, ownerSecret: data.ownerSecret, resendSecret: data.resendSecret,
         createdAt: Date.now(), otpAvailableAt: Date.now() + 10 * 60 * 1000
