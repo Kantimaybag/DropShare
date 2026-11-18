@@ -25,8 +25,8 @@ class AesGcmEncryptionServiceTest {
     @Test
     void rejectsTamperedTextCiphertext() {
         String encrypted = encryption.encryptText("secret");
-        char replacement = encrypted.charAt(encrypted.length() - 1) == 'A' ? 'B' : 'A';
         int tamperIndex = "enc:v1:".length() + 16; // first ciphertext byte after the 12-byte nonce
+        char replacement = encrypted.charAt(tamperIndex) == 'A' ? 'B' : 'A';
         String tampered = encrypted.substring(0, tamperIndex) + replacement + encrypted.substring(tamperIndex + 1);
 
         assertThrows(IllegalStateException.class, () -> encryption.decryptText(tampered));
