@@ -224,7 +224,7 @@ public class ShareService {
 
         SharedTextEntry textEntry = new SharedTextEntry();
         textEntry.setShare(savedShare);
-        textEntry.setTitle("Text entry");
+        textEntry.setTitle(request.getTitle() == null || request.getTitle().isBlank() ? "Text entry" : request.getTitle());
         textEntry.setContent(encryptionService.encryptText(request.getTextContent()));
         textEntry.setFormat(request.getSnippetFormat() == null ? "text" : request.getSnippetFormat());
         textRepository.save(textEntry);
