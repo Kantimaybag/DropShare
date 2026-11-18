@@ -189,7 +189,7 @@ class ShareControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.shareType").value("MIXED"));
+                .andExpect(jsonPath("$.data.shareType").value("FILE"));
     }
 
     @Test
@@ -257,10 +257,12 @@ class ShareControllerIntegrationTest {
         share.setId(60L);
         share.setShareStatus(ShareStatus.ACTIVE);
         share.setExpiresAt(Instant.now().plusSeconds(3600));
+        share.setOwnerSecretHash(HashUtil.sha256("owner-secret"));
 
         when(shareRepository.findByPublicToken(anyString())).thenReturn(Optional.of(share));
 
-        mockMvc.perform(post("/api/v1/shares/" + rawToken + "/revoke"))
+        mockMvc.perform(post("/api/v1/shares/" + rawToken + "/revoke")
+                        .header("X-Share-Owner", "owner-secret"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Share revoked successfully"));
