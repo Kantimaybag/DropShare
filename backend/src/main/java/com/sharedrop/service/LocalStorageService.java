@@ -2,7 +2,6 @@ package com.sharedrop.service;
 
 import com.sharedrop.exception.ResourceNotFoundException;
 import com.sharedrop.exception.StorageException;
-import com.sharedrop.util.FileValidator;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,15 +23,12 @@ import java.nio.file.StandardOpenOption;
 public class LocalStorageService implements StorageService {
     private static final Logger log = LoggerFactory.getLogger(LocalStorageService.class);
     private final Path rootLocation;
-    private final FileValidator fileValidator;
     private final AesGcmEncryptionService encryptionService;
 
     public LocalStorageService(
             @Value("${app.upload.storage-path:./uploads}") String storagePath,
-            FileValidator fileValidator,
             AesGcmEncryptionService encryptionService) {
         this.rootLocation = Paths.get(storagePath).toAbsolutePath().normalize();
-        this.fileValidator = fileValidator;
         this.encryptionService = encryptionService;
     }
 
