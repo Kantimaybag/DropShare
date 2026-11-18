@@ -218,34 +218,34 @@ async function refreshSessionManagement() {
       renderAuditTable();
     }
   } catch (error) { console.info('Session management is unavailable:', error.message); }
-  await refreshAuditLog();
+  await refreshAccessLog();
 }
 
-async function refreshAuditLog() {
+async function refreshAccessLog() {
   if (!state.activeSession) return;
   const { token, ownerSecret } = state.activeSession;
   try {
-    const response = await fetch(`${API_BASE}/shares/${encodeURIComponent(token)}/audit`, {
+    const response = await fetch(`${API_BASE}/shares/${encodeURIComponent(token)}/access-log`, {
       headers: { 'X-Share-Owner': ownerSecret }
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.success || !Array.isArray(result.data)) return;
-    renderAuditEvents(result.data);
+    renderAccessEvents(result.data);
   } catch (error) { console.info('Audit log is unavailable:', error.message); }
 }
 
-function renderAuditEvents(events) {
-  let section = document.getElementById('real-audit-log');
+function renderAccessEvents(events) {
+  let section = document.getElementById('real-access-log');
   if (!section) {
     section = document.createElement('section');
-    section.id = 'real-audit-log';
+    section.id = 'real-access-log';
     section.className = 'section-card';
     const anchor = document.querySelector('.recent-transfers-section');
     if (anchor) anchor.appendChild(section);
   }
   if (!section) return;
   section.innerHTML = `
-    <div class="section-header"><div class="section-title">Access Log <span class="section-badge">${events.length} events</span></div><button type="button" id="refresh-audit-log" class="btn btn-ghost btn-sm">Refresh</button></div>
+    <div class="section-header"><div class="section-title">Access Log <span class="section-badge">${events.length} events</span></div><button type="button" id="refresh-access-log" class="btn btn-ghost btn-sm">Refresh</button></div>
     <div>
       ${events.length ? events.map(event => `
         <div style="display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--border-subtle);">
@@ -253,7 +253,7 @@ function renderAuditEvents(events) {
           <time style="font-size:11px;color:var(--slate-500);white-space:nowrap;">${escapeHTML(new Date(event.createdAt).toLocaleString())}</time>
         </div>`).join('') : '<p style="color:var(--slate-500);padding:12px 0;">No activity recorded yet.</p>'}
     </div>`;
-  section.querySelector('#refresh-audit-log')?.addEventListener('click', refreshAuditLog);
+  section.querySelector('#refresh-access-log')?.addEventListener('click', refreshAccessLog);
 }
 
 // DOM Elements & Initialization
@@ -952,7 +952,7 @@ async function revokeDrop(dropId) {
 
     drop.status = 'REVOKED';
     saveRecentDrops();
-    await refreshAuditLog();
+    await refreshAccessLog();
     if (state.activeSession?.token === drop.token) { state.activeSession = null; saveActiveSession(); activeResendContext = null; }
     renderAuditTable();
     showToast('Session revoked. Its contents are queued for destruction.', 'success');
